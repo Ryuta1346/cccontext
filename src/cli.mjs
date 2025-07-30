@@ -6,6 +6,7 @@ import { ContextTracker } from './monitor/context-tracker.mjs';
 import { LiveView } from './display/live-view.mjs';
 import { SessionsLiveView } from './display/sessions-live-view.mjs';
 import { UsageCalculator } from './monitor/usage-calculator.mjs';
+import { EnhancedSessionsManager } from './monitor/enhanced-sessions-manager.mjs';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import fs from 'fs';
@@ -16,6 +17,7 @@ class CCContextCLI {
   constructor() {
     this.watcher = new SessionWatcher();
     this.tracker = new ContextTracker();
+    this.sessionsManager = new EnhancedSessionsManager();
     this.view = null;
     this.sessionsView = null;
     this.calculator = new UsageCalculator();
@@ -243,6 +245,11 @@ class CCContextCLI {
           this.watcher.invalidateCache();
           const files = await this.watcher.getAllJsonlFiles();
           const sessions = [];
+          
+          // デバッグ: 更新が呼ばれていることを確認
+          if (options.debug) {
+            console.error(`[DEBUG] updateSessions called, found ${files.length} files`);
+          }
 
           // 各セッションファイルの情報を収集
           for (const file of files) {
@@ -308,11 +315,16 @@ class CCContextCLI {
           sessions.sort((a, b) => b.lastModified - a.lastModified);
 
           // 表示数を制限
-          const limit = parseInt(options.limit) || 20;
+          const limit = parseInt(options.limit || 20);
           const displaySessions = sessions.slice(0, limit);
 
           // ビューを更新
           this.sessionsView.updateSessions(displaySessions);
+          
+          // デバッグ: 更新が完了したことを確認
+          if (options.debug) {
+            console.error(`[DEBUG] View updated with ${displaySessions.length} sessions`);
+          }
         } catch (error) {
           this.sessionsView.showError(`Error: ${error.message}`);
         }
@@ -335,12 +347,94 @@ class CCContextCLI {
     }
   }
 
+  async showSessionsLiveEnhanced(options) {
+    console.log(chalk.cyan('🔍 Starting Enhanced Claude Code Sessions Monitor...'));
+    
+    // デバッグモードの設定
+    const debugMode = process.env.DEBUG === '1' || options.debug;
+    this.sessionsManager.setDebugMode(debugMode);
+    
+    if (debugMode) {
+      console.log(chalk.yellow('🐛 Debug mode enabled'));
+    }
+    
+    // ライブビューの初期化
+    this.sessionsView = new SessionsLiveView();
+    this.sessionsView.init();
+    
+    try {
+      // イベントリスナーを先に設定
+      // セッション読み込み完了イベント
+      this.sessionsManager.on('sessions-loaded', (sessions) => {
+        if (debugMode) {
+          console.error(`[CLI] Sessions loaded event received: ${sessions.length} sessions`);
+        }
+        
+        const limit = parseInt(options.limit || 20);
+        const displaySessions = sessions.slice(0, limit);
+        
+        if (debugMode) {
+          console.error(`[CLI] Updating view with ${displaySessions.length} sessions`);
+          if (displaySessions.length > 0) {
+            console.error(`[CLI] First session sample:`, JSON.stringify(displaySessions[0], null, 2));
+          }
+        }
+        
+        this.sessionsView.updateSessions(displaySessions);
+        this.sessionsView.render();
+      });
+      
+      // セッション更新イベント（リアルタイム）
+      this.sessionsManager.on('sessions-updated', (sessions) => {
+        const limit = parseInt(options.limit || 20);
+        const displaySessions = sessions.slice(0, limit);
+        this.sessionsView.updateSessions(displaySessions);
+        
+        if (debugMode) {
+          const stats = this.sessionsManager.getCacheStats();
+          console.error(`[CLI] Update: ${sessions.length} sessions, cache: ${stats.cachedSessions}`);
+        }
+      });
+      
+      // 拡張セッションマネージャーを初期化（イベントリスナー設定後）
+      await this.sessionsManager.initialize();
+      
+      // プロセス終了時のクリーンアップ
+      const cleanup = () => {
+        console.log(chalk.cyan('\n🔄 Shutting down sessions monitor...'));
+        this.cleanup();
+      };
+      
+      process.on('SIGINT', cleanup);
+      process.on('SIGTERM', cleanup);
+      
+      // ステータスバーを更新してイベント駆動を表示
+      this.updateStatusBarForEventDriven();
+      
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error.message}`));
+      this.cleanup();
+      process.exit(1);
+    }
+  }
+
+  updateStatusBarForEventDriven() {
+    if (this.sessionsView && this.sessionsView.boxes && this.sessionsView.boxes.statusBar) {
+      this.sessionsView.boxes.statusBar.setContent(
+        '[Live] Event-driven updates (↑↓: navigate, q: exit, r: refresh)'
+      );
+    }
+  }
+
   cleanup() {
     if (this.view) {
       this.view.destroy();
     }
     if (this.sessionsView) {
       this.sessionsView.destroy();
+    }
+    if (this.sessionsManager) {
+      this.sessionsManager.destroy();
     }
     this.watcher.stopAll();
     process.exit(0);
@@ -375,8 +469,10 @@ program
   .description('List recent Claude Code sessions')
   .option('-l, --limit <number>', 'Number of sessions to show', '10')
   .option('--live', 'Live monitoring mode')
+  .option('--debug', 'Enable debug mode for detailed logging')
   .action((options) => {
     if (options.live) {
+      // 一時的に元の実装を使用
       cli.showSessionsLive(options);
     } else {
       cli.showSessions(options);

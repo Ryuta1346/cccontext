@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { ContextTracker } from '../src/monitor/context-tracker.mjs';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { ContextTracker, CONTEXT_WINDOWS } from '../src/monitor/context-tracker.mjs';
 
 describe('ContextTracker', () => {
   describe('Error Cases', () => {
@@ -245,5 +245,309 @@ describe('ContextTracker', () => {
     expect(tracker.getSession('session-1')).toBeTruthy();
     expect(tracker.getSession('session-2')).toBeTruthy();
     expect(tracker.getSession('non-existent')).toBeUndefined();
+  });
+
+  describe('Active Sessions', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should get active sessions within time window', () => {
+      const tracker = new ContextTracker();
+      const now = new Date('2025-01-01T12:00:00Z');
+      vi.setSystemTime(now);
+      
+      // Create sessions with different ages
+      const recentSession = {
+        sessionId: 'recent',
+        model: 'claude-3-5-sonnet-20241022',
+        messages: []
+      };
+      
+      const oldSession = {
+        sessionId: 'old',
+        model: 'claude-3-5-sonnet-20241022',
+        messages: []
+      };
+      
+      // Update recent session
+      tracker.updateSession(recentSession);
+      
+      // Move time forward 2 hours
+      vi.setSystemTime(new Date('2025-01-01T14:00:00Z'));
+      
+      // Update old session
+      tracker.updateSession(oldSession);
+      
+      // Get active sessions within 1 hour
+      const activeSessions = tracker.getActiveSessions(3600000); // 1 hour
+      
+      expect(activeSessions).toHaveLength(1);
+      expect(activeSessions[0].sessionId).toBe('old');
+    });
+
+    it('should use default max age of 1 hour', () => {
+      const tracker = new ContextTracker();
+      const now = new Date('2025-01-01T12:00:00Z');
+      vi.setSystemTime(now);
+      
+      tracker.updateSession({
+        sessionId: 'test',
+        model: 'claude-3-5-sonnet-20241022',
+        messages: []
+      });
+      
+      // Move forward 30 minutes
+      vi.setSystemTime(new Date('2025-01-01T12:30:00Z'));
+      expect(tracker.getActiveSessions()).toHaveLength(1);
+      
+      // Move forward another 31 minutes (total 61 minutes)
+      vi.setSystemTime(new Date('2025-01-01T13:01:00Z'));
+      expect(tracker.getActiveSessions()).toHaveLength(0);
+    });
+  });
+
+  describe('Duration Formatting', () => {
+    it('should format duration correctly', () => {
+      const tracker = new ContextTracker();
+      const now = Date.now();
+      
+      // Test various durations
+      expect(tracker.formatDuration(new Date(now - 30000))).toBe('0m'); // 30 seconds
+      expect(tracker.formatDuration(new Date(now - 60000))).toBe('1m'); // 1 minute
+      expect(tracker.formatDuration(new Date(now - 3600000))).toBe('1h 0m'); // 1 hour
+      expect(tracker.formatDuration(new Date(now - 3720000))).toBe('1h 2m'); // 1 hour 2 minutes
+      expect(tracker.formatDuration(new Date(now - 7380000))).toBe('2h 3m'); // 2 hours 3 minutes
+      expect(tracker.formatDuration(null)).toBe('Unknown');
+      expect(tracker.formatDuration(undefined)).toBe('Unknown');
+    });
+  });
+
+  describe('Warning Messages', () => {
+    it('should return correct warning messages', () => {
+      const tracker = new ContextTracker();
+      
+      expect(tracker.getWarningMessage({ warningLevel: 'normal' })).toBeNull();
+      expect(tracker.getWarningMessage({ warningLevel: 'warning' })).toContain('High context usage');
+      expect(tracker.getWarningMessage({ warningLevel: 'severe' })).toContain('Approaching context limit');
+      expect(tracker.getWarningMessage({ warningLevel: 'critical' })).toContain('Context limit nearly reached');
+    });
+  });
+
+  describe('Prompt Formatting', () => {
+    it('should format prompts correctly', () => {
+      const tracker = new ContextTracker();
+      
+      // Test null/undefined
+      expect(tracker.formatPrompt(null)).toBe('');
+      expect(tracker.formatPrompt(undefined)).toBe('');
+      expect(tracker.formatPrompt('')).toBe('');
+      
+      // Test short prompts
+      expect(tracker.formatPrompt('Hello')).toBe('Hello');
+      
+      // Test long prompts
+      const longPrompt = 'a'.repeat(60);
+      const formatted = tracker.formatPrompt(longPrompt);
+      expect(formatted).toHaveLength(53); // 50 + '...'
+      expect(formatted.endsWith('...')).toBe(true);
+      
+      // Test prompts with newlines and multiple spaces
+      expect(tracker.formatPrompt('Hello\n\n  World')).toBe('Hello World');
+      expect(tracker.formatPrompt('  Multiple   spaces  ')).toBe('Multiple spaces');
+    });
+
+    it('should handle Japanese characters correctly', () => {
+      const tracker = new ContextTracker();
+      
+      // Japanese characters count as 2
+      const japaneseText = 'こんにちは世界'; // 7 characters, 14 width
+      expect(tracker.formatPrompt(japaneseText)).toBe(japaneseText);
+      
+      // Mixed text
+      const mixedText = 'Hello こんにちは World 世界 test';
+      const formatted = tracker.formatPrompt(mixedText);
+      expect(formatted).toContain('Hello こんにちは World');
+      
+      // Long Japanese text should be truncated
+      const longJapanese = 'あ'.repeat(30); // 30 characters, 60 width
+      const formattedLong = tracker.formatPrompt(longJapanese);
+      expect(formattedLong.endsWith('...')).toBe(true);
+      expect(formattedLong.length).toBeLessThan(longJapanese.length);
+    });
+  });
+
+  describe('Model Names and Context Windows', () => {
+    it('should have correct context window sizes', () => {
+      expect(CONTEXT_WINDOWS['claude-3-opus-20241022']).toBe(200_000);
+      expect(CONTEXT_WINDOWS['claude-opus-4-20250514']).toBe(200_000);
+      expect(CONTEXT_WINDOWS['claude-3-5-sonnet-20241022']).toBe(200_000);
+      expect(CONTEXT_WINDOWS['claude-3-5-haiku-20241022']).toBe(200_000);
+      expect(CONTEXT_WINDOWS['claude-3-haiku-20240307']).toBe(200_000);
+      expect(CONTEXT_WINDOWS['claude-2.1']).toBe(200_000);
+      expect(CONTEXT_WINDOWS['claude-2.0']).toBe(100_000);
+      expect(CONTEXT_WINDOWS['claude-instant-1.2']).toBe(100_000);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle sessions with no messages', () => {
+      const tracker = new ContextTracker();
+      
+      const result = tracker.updateSession({
+        sessionId: 'empty',
+        model: 'claude-3-5-sonnet-20241022',
+        messages: []
+      });
+      
+      expect(result.totalTokens).toBe(0);
+      expect(result.turns).toBe(0);
+      expect(result.averageTokensPerTurn).toBe(0);
+      expect(result.estimatedRemainingTurns).toBe(Infinity);
+    });
+
+    it('should handle missing sessionId', () => {
+      const tracker = new ContextTracker();
+      
+      const result = tracker.updateSession({
+        model: 'claude-3-5-sonnet-20241022',
+        messages: []
+      });
+      
+      expect(result.sessionId).toBe('unknown');
+      expect(result.totalTokens).toBe(0);
+    });
+
+    it('should handle missing model', () => {
+      const tracker = new ContextTracker();
+      
+      const result = tracker.updateSession({
+        sessionId: 'test',
+        messages: []
+      });
+      
+      expect(result.totalTokens).toBe(0);
+      expect(result.warningLevel).toBe('normal');
+    });
+
+    it('should calculate latest turn correctly with zero cache tokens', () => {
+      const tracker = new ContextTracker();
+      
+      const sessionData = {
+        sessionId: 'test',
+        model: 'claude-3-5-sonnet-20241022',
+        messages: [],
+        latestUsage: {
+          input: 1000,
+          output: 2000,
+          cache: 0
+        }
+      };
+      
+      const result = tracker.updateSession(sessionData);
+      
+      expect(result.latestTurn).toEqual({
+        input: 1000,
+        output: 2000,
+        cache: 0,
+        total: 3000,
+        percentage: 1.5
+      });
+    });
+
+    it('should format infinity correctly for estimated remaining turns', () => {
+      const tracker = new ContextTracker();
+      
+      const info = {
+        sessionId: 'test',
+        modelName: 'Claude 3.5 Sonnet',
+        usagePercentage: 0,
+        totalTokens: 0,
+        contextWindow: 200_000,
+        remainingTokens: 200_000,
+        totalCost: 0,
+        turns: 0,
+        averageTokensPerTurn: 0,
+        estimatedRemainingTurns: Infinity,
+        warningLevel: 'normal',
+        startTime: new Date()
+      };
+      
+      const formatted = tracker.formatContextInfo(info);
+      expect(formatted.estRemainingTurns).toBe('∞');
+    });
+  });
+
+  describe('Session Data Updates', () => {
+    it('should update lastUpdate timestamp on each update', () => {
+      const tracker = new ContextTracker();
+      const sessionData = {
+        sessionId: 'test',
+        model: 'claude-3-5-sonnet-20241022',
+        messages: []
+      };
+      
+      const result1 = tracker.updateSession(sessionData);
+      const time1 = result1.lastUpdate;
+      
+      // Wait a bit
+      const result2 = tracker.updateSession(sessionData);
+      const time2 = result2.lastUpdate;
+      
+      expect(time2.getTime()).toBeGreaterThanOrEqual(time1.getTime());
+    });
+
+    it('should preserve session data across updates', () => {
+      const tracker = new ContextTracker();
+      
+      // First update
+      tracker.updateSession({
+        sessionId: 'test',
+        model: 'claude-3-5-sonnet-20241022',
+        messages: [
+          {
+            message: {
+              role: 'assistant',
+              usage: { input_tokens: 1000, output_tokens: 0 }
+            }
+          }
+        ],
+        startTime: new Date('2025-01-01T00:00:00Z'),
+        latestPrompt: 'First prompt',
+        latestPromptTime: '2025-01-01T00:00:00Z'
+      });
+      
+      // Second update with more messages
+      const result = tracker.updateSession({
+        sessionId: 'test',
+        model: 'claude-3-5-sonnet-20241022',
+        messages: [
+          {
+            message: {
+              role: 'assistant',
+              usage: { input_tokens: 1000, output_tokens: 0 }
+            }
+          },
+          {
+            message: {
+              role: 'assistant',
+              usage: { input_tokens: 2000, output_tokens: 0 }
+            }
+          }
+        ],
+        startTime: new Date('2025-01-01T00:00:00Z'),
+        latestPrompt: 'Second prompt',
+        latestPromptTime: '2025-01-01T00:01:00Z'
+      });
+      
+      expect(result.totalTokens).toBe(3000);
+      expect(result.turns).toBe(2);
+      expect(result.latestPrompt).toBe('Second prompt');
+      expect(result.latestPromptTime).toBe('2025-01-01T00:01:00Z');
+    });
   });
 });

@@ -92,8 +92,8 @@ export class SessionWatcher extends EventEmitter {
       followSymlinks: false,
       depth: 10,
       awaitWriteFinish: {
-        stabilityThreshold: 200,
-        pollInterval: 100
+        stabilityThreshold: 500,
+        pollInterval: 50
       }
     });
 
@@ -135,8 +135,8 @@ export class SessionWatcher extends EventEmitter {
     const stats = await fs.promises.stat(filePath);
     this.filePositions.set(sessionId, stats.size);
 
-    // 初回読み込み
-    await this.readExistingData(sessionId, filePath);
+    // 初回読み込み（compact操作ではないので false）
+    await this.readExistingData(sessionId, filePath, false);
 
     // ファイル監視開始
     const watcher = chokidar.watch(filePath, {
@@ -145,8 +145,8 @@ export class SessionWatcher extends EventEmitter {
       interval: 100,
       binaryInterval: 100,
       awaitWriteFinish: {
-        stabilityThreshold: 100,
-        pollInterval: 100
+        stabilityThreshold: 300,
+        pollInterval: 50
       }
     });
 
@@ -158,20 +158,36 @@ export class SessionWatcher extends EventEmitter {
     this.emit('session-started', { sessionId, filePath });
   }
 
-  async readExistingData(sessionId, filePath) {
+  async readExistingData(sessionId, filePath, isCompactOperation = false) {
     try {
       const content = await fs.promises.readFile(filePath, 'utf-8');
       const lines = content.trim().split('\n').filter(line => line);
       
-      const sessionData = {
-        sessionId,
-        messages: [],
-        totalTokens: 0,
-        totalCost: 0,
-        turns: 0,
-        model: null,
-        startTime: null
-      };
+      // セッションデータを取得または新規作成
+      let sessionData = this.sessions.get(sessionId);
+      
+      // /compact操作の場合、または新規セッションの場合はデータを初期化
+      if (isCompactOperation || !sessionData) {
+        sessionData = {
+          sessionId,
+          messages: [],
+          totalTokens: 0,
+          totalCost: 0,
+          turns: 0,
+          model: null,
+          startTime: null
+        };
+      }
+
+      // /compact操作の場合は既存データをクリア
+      if (isCompactOperation && this.sessions.has(sessionId)) {
+        sessionData.messages = [];
+        sessionData.totalTokens = 0;
+        sessionData.totalCost = 0;
+        sessionData.turns = 0;
+        sessionData.model = null;
+        sessionData.startTime = null;
+      }
 
       for (const line of lines) {
         try {
@@ -193,9 +209,32 @@ export class SessionWatcher extends EventEmitter {
     try {
       const stats = await fs.promises.stat(filePath);
       const lastPosition = this.filePositions.get(sessionId) || 0;
+      const lastMtime = this.fileMtimes?.get(sessionId) || 0;
       
-      if (stats.size > lastPosition) {
-        // 新しいデータを読み込む
+      // ファイルサイズが減少した場合、または大幅に変化した場合
+      // （/compactなどでファイルが置き換えられた可能性）
+      // または最終更新時刻が大きく変わった場合
+      const isCompactOperation = stats.size < lastPosition || 
+                                Math.abs(stats.size - lastPosition) > 5000 ||
+                                (lastMtime && Math.abs(stats.mtimeMs - lastMtime) > 60000);
+      
+      if (isCompactOperation) {
+        // ファイル全体を再読み込み
+        // console.logは blessed UIと干渉するため、デバッグモードの場合のみ出力
+        if (process.env.DEBUG || process.env.SESSION_WATCHER_DEBUG) {
+          console.error(`[SessionWatcher] Compact operation detected for ${sessionId}`);
+        }
+        this.filePositions.set(sessionId, 0);
+        await this.readExistingData(sessionId, filePath, true);  // isCompactOperationフラグをtrueに
+        // 現在のファイルサイズと更新時刻を記録
+        this.filePositions.set(sessionId, stats.size);
+        if (!this.fileMtimes) this.fileMtimes = new Map();
+        this.fileMtimes.set(sessionId, stats.mtimeMs);
+        
+        // compact検出を通知
+        this.emit('compact-detected', { sessionId, filePath });
+      } else if (stats.size > lastPosition) {
+        // 新しいデータを読み込む（増分読み込み）
         const stream = fs.createReadStream(filePath, {
           start: lastPosition,
           encoding: 'utf-8'
@@ -223,14 +262,23 @@ export class SessionWatcher extends EventEmitter {
 
         stream.on('end', () => {
           this.filePositions.set(sessionId, stats.size);
+          if (!this.fileMtimes) this.fileMtimes = new Map();
+          this.fileMtimes.set(sessionId, stats.mtimeMs);
         });
       }
+      // stats.size === lastPosition の場合は何もしない（変更なし）
     } catch (error) {
       this.emit('error', { sessionId, error });
     }
   }
 
   processMessage(sessionData, data) {
+    // /compact検出
+    if (data.message?.content?.includes('[Previous conversation summary') || 
+        data.message?.content?.includes('Previous conversation compacted')) {
+      sessionData.isCompacted = true;
+    }
+    
     // タイムスタンプの記録
     if (!sessionData.startTime && data.timestamp) {
       sessionData.startTime = new Date(data.timestamp);

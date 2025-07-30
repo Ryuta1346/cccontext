@@ -322,4 +322,135 @@ describe('UsageCalculator', () => {
     expect(result.totalTokens).toBe(300);
     expect(result.turns).toBe(1);
   });
+
+  describe('Additional Edge Cases', () => {
+    it('should handle all Claude model pricing correctly', () => {
+      const calculator = new UsageCalculator();
+      const usage = { input_tokens: 1000, output_tokens: 1000 };
+      
+      // Test all models in PRICING
+      const expectedResults = {
+        'claude-3-opus-20241022': { input: 0.015, output: 0.075, total: 0.09 },
+        'claude-opus-4-20250514': { input: 0.015, output: 0.075, total: 0.09 },
+        'claude-3-5-sonnet-20241022': { input: 0.003, output: 0.015, total: 0.018 },
+        'claude-3-5-haiku-20241022': { input: 0.001, output: 0.005, total: 0.006 },
+        'claude-3-haiku-20240307': { input: 0.00025, output: 0.00125, total: 0.0015 }
+      };
+      
+      for (const [model, expected] of Object.entries(expectedResults)) {
+        const result = calculator.calculateCost(usage, model);
+        expect(result.inputCost).toBeCloseTo(expected.input, 5);
+        expect(result.outputCost).toBeCloseTo(expected.output, 5);
+        expect(result.totalCost).toBeCloseTo(expected.total, 5);
+      }
+    });
+
+    it('should handle empty messages array', () => {
+      const calculator = new UsageCalculator();
+      const result = calculator.calculateSessionTotals([], 'claude-3-5-sonnet-20241022');
+      
+      expect(result.totalInputTokens).toBe(0);
+      expect(result.totalOutputTokens).toBe(0);
+      expect(result.totalCacheTokens).toBe(0);
+      expect(result.totalTokens).toBe(0);
+      expect(result.totalCost).toBe(0);
+      expect(result.turns).toBe(0);
+      expect(result.averageTokensPerTurn).toBe(0);
+    });
+
+    it('should handle non-array messages gracefully', () => {
+      const calculator = new UsageCalculator();
+      
+      // The implementation uses for...of which handles non-iterables gracefully
+      // by not entering the loop, so we should test that it returns zero values
+      const invalidInputs = [null, undefined, {}, 123];
+      
+      for (const input of invalidInputs) {
+        if (input === null || input === undefined) {
+          // null/undefined will throw when trying to iterate
+          expect(() => {
+            calculator.calculateSessionTotals(input, 'claude-3-5-sonnet-20241022');
+          }).toThrow();
+        } else {
+          // Other non-iterables will also throw
+          expect(() => {
+            calculator.calculateSessionTotals(input, 'claude-3-5-sonnet-20241022');
+          }).toThrow();
+        }
+      }
+      
+      // String is iterable but won't have message property
+      const stringResult = calculator.calculateSessionTotals('test', 'claude-3-5-sonnet-20241022');
+      expect(stringResult.totalTokens).toBe(0);
+      expect(stringResult.totalCost).toBe(0);
+    });
+
+    it('should handle mixed valid and invalid tokens in usage', () => {
+      const calculator = new UsageCalculator();
+      
+      const usage = {
+        input_tokens: '1000', // string that can be converted
+        output_tokens: true, // boolean becomes 1
+        cache_read_input_tokens: false // boolean becomes 0
+      };
+      
+      const result = calculator.calculateCost(usage, 'claude-3-5-sonnet-20241022');
+      expect(result.inputTokens).toBe(1000);
+      expect(result.outputTokens).toBe(1);
+      expect(result.cacheTokens).toBe(0);
+      expect(result.totalTokens).toBe(1001);
+    });
+
+    it('should format edge case token values', () => {
+      const calculator = new UsageCalculator();
+      
+      // Exactly at boundaries
+      expect(calculator.formatTokens(1_000_000)).toBe('1.0M');
+      expect(calculator.formatTokens(999_999)).toBe('1000.0k');
+      expect(calculator.formatTokens(1_000)).toBe('1.0k');
+      expect(calculator.formatTokens(999)).toBe('999');
+      
+      // Very large numbers
+      expect(calculator.formatTokens(999_999_999)).toBe('1000.0M');
+      expect(calculator.formatTokens(1_234_567_890)).toBe('1234.6M');
+    });
+
+    it('should handle fractional token values', () => {
+      const calculator = new UsageCalculator();
+      
+      const usage = {
+        input_tokens: 0.5, // fractional tokens
+        output_tokens: 1.7,
+        cache_read_input_tokens: 2.3
+      };
+      
+      const result = calculator.calculateCost(usage, 'claude-3-5-sonnet-20241022');
+      expect(result.inputTokens).toBe(0.5);
+      expect(result.outputTokens).toBe(1.7);
+      expect(result.cacheTokens).toBe(2.3);
+      expect(result.totalTokens).toBeCloseTo(2.2, 5); // 0.5 + 1.7
+    });
+
+    it('should handle Infinity in calculations', () => {
+      const calculator = new UsageCalculator();
+      
+      const usage = {
+        input_tokens: Infinity,
+        output_tokens: 1000
+      };
+      
+      const result = calculator.calculateCost(usage, 'claude-3-5-sonnet-20241022');
+      expect(result.inputCost).toBe(Infinity);
+      expect(result.totalCost).toBe(Infinity);
+      expect(result.totalTokens).toBe(Infinity);
+    });
+
+    it('should get correct model names for all models', () => {
+      const calculator = new UsageCalculator();
+      
+      expect(calculator.getModelName('claude-3-5-haiku-20241022')).toBe('Claude 3.5 Haiku');
+      expect(calculator.getModelName('claude-3-haiku-20240307')).toBe('Claude 3 Haiku');
+      expect(calculator.getModelName('non-existent-model')).toBe('Unknown Model');
+    });
+  });
 });

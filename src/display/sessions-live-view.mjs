@@ -315,10 +315,17 @@ export class SessionsLiveView {
   }
 
   startAutoRefresh(refreshCallback) {
-    // 1秒ごとに更新
+    // 1秒ごとに更新 - レガシー実装用
     this.updateInterval = setInterval(() => {
       refreshCallback();
     }, 1000);
+  }
+
+  stopAutoRefresh() {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
+    }
   }
 
   render() {
