@@ -47,7 +47,14 @@ npm link  # グローバルにリンク
 ```bash
 cccontext
 # または
+cccontext monitor
 cccontext monitor --live
+```
+
+特定のセッションを監視：
+
+```bash
+cccontext monitor --session <session-id>
 ```
 
 ### セッション一覧
@@ -57,7 +64,29 @@ cccontext monitor --live
 ```bash
 cccontext sessions
 cccontext sessions --limit 20  # 20件表示
+cccontext sessions --live      # ライブビューモード
 ```
+
+## コマンドラインオプション
+
+### `cccontext` （デフォルト）
+最新のアクティブセッションをリアルタイム監視します。
+
+### `cccontext monitor`
+Claude Codeのコンテキスト使用量を監視します。
+
+| オプション | 説明 | デフォルト |
+|------------|------|------------|
+| `-l, --live` | ライブ監視モード | true |
+| `-s, --session <id>` | 特定のセッションIDを監視 | - |
+
+### `cccontext sessions`
+最近のClaude Codeセッションを一覧表示します。
+
+| オプション | 説明 | デフォルト |
+|------------|------|------------|
+| `-l, --limit <number>` | 表示するセッション数 | 10 |
+| `--live` | ライブビューモード（自動更新） | false |
 
 ## 表示例
 
@@ -129,6 +158,32 @@ Total sessions: 3
 - Claude 3.5 Sonnet
 - Claude 3.5 Haiku
 - Claude 3 Haiku
+
+## その他の情報
+
+### バージョン確認
+
+```bash
+cccontext --version
+```
+
+### ヘルプ
+
+```bash
+cccontext --help
+cccontext monitor --help
+cccontext sessions --help
+```
+
+### 必要な権限
+
+- `~/.claude/projects/` ディレクトリへの読み取りアクセス
+- JSONLファイルの読み取り権限
+
+### システム要件
+
+- Node.js 18.0.0 以上
+- macOS, Linux, Windows対応
 
 ## ライセンス
 

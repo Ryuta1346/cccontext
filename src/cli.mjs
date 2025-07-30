@@ -225,23 +225,22 @@ class CCContextCLI {
       
       // セッション追加/削除/更新イベントをリッスン
       this.watcher.on('session-added', async ({ sessionId, filePath }) => {
-        console.error(`New session detected: ${sessionId}`); // デバッグ用
         await updateSessions(); // 新しいセッションが追加されたら更新
       });
       
       this.watcher.on('session-removed', async ({ sessionId, filePath }) => {
-        console.error(`Session removed: ${sessionId}`); // デバッグ用
         await updateSessions(); // セッションが削除されたら更新
       });
       
       this.watcher.on('session-updated', async ({ sessionId, filePath }) => {
-        console.error(`Session updated: ${sessionId}`); // デバッグ用
         await updateSessions(); // セッションが更新されたら（/compactなど）更新
       });
 
       // セッション情報の更新関数
       const updateSessions = async () => {
         try {
+          // キャッシュを無効化して最新のファイルリストを取得
+          this.watcher.invalidateCache();
           const files = await this.watcher.getAllJsonlFiles();
           const sessions = [];
 
@@ -354,7 +353,13 @@ const cli = new CCContextCLI();
 program
   .name('cccontext')
   .description('Real-time context usage monitor for Claude Code')
-  .version('0.1.0');
+  .version('0.1.0')
+  .exitOverride()
+  .configureOutput({
+    writeOut: (str) => { process.stdout.write(str); },
+    writeErr: (str) => { process.stderr.write(str); }
+  })
+  .allowUnknownOption(false);
 
 program
   .command('monitor')
@@ -378,10 +383,29 @@ program
     }
   });
 
+// 未知のコマンドのハンドリング
+program.on('command:*', function (operands) {
+  console.error(`error: unknown command '${operands[0]}'`);
+  process.exit(1);
+});
+
 // デフォルトコマンド（引数なしで実行された場合）
-program
-  .action(() => {
+if (process.argv.length <= 2) {
+  // コマンドが指定されていない場合のみデフォルトアクションを設定
+  program.action(() => {
     cli.monitorLive({ live: true });
   });
+}
 
-program.parse(process.argv);
+try {
+  program.parse(process.argv);
+} catch (err) {
+  // CommanderのexitOverrideでhelp/version時に例外が発生
+  if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
+    process.exit(0);
+  } else if (err.code && err.code.startsWith('commander.')) {
+    process.exit(1);
+  } else {
+    throw err;
+  }
+}

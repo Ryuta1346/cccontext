@@ -124,17 +124,6 @@ export class SessionsLiveView {
       this.render();
     });
 
-    // 矢印キーによるナビゲーション
-    this.boxes.sessionsTable.key(['up', 'k'], () => {
-      this.boxes.sessionsTable.up();
-      this.screen.render();
-    });
-
-    this.boxes.sessionsTable.key(['down', 'j'], () => {
-      this.boxes.sessionsTable.down();
-      this.screen.render();
-    });
-
     // テーブルにフォーカスを設定
     this.boxes.sessionsTable.focus();
 
@@ -151,7 +140,7 @@ export class SessionsLiveView {
   }
 
   formatStatusBar() {
-    return '[Live] Auto-refreshing every 1s (↑↓/jk: navigate, q: exit, r: refresh)';
+    return '[Live] Auto-refreshing every 1s (↑↓: navigate, q: exit, r: refresh)';
   }
 
   updateTableHeader() {

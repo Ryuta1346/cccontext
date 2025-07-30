@@ -40,11 +40,24 @@ export class UsageCalculator {
   }
 
   calculateCost(usage, model) {
+    if (!usage) {
+      return {
+        inputCost: 0,
+        outputCost: 0,
+        totalCost: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheTokens: 0,
+        totalTokens: 0
+      };
+    }
+    
     const pricing = this.pricing[model] || DEFAULT_PRICING;
     
-    const inputTokens = usage.input_tokens || 0;
-    const outputTokens = usage.output_tokens || 0;
-    const cacheTokens = usage.cache_read_input_tokens || 0;
+    // 数値に変換し、無効な値は0として扱う
+    const inputTokens = Number(usage.input_tokens) || 0;
+    const outputTokens = Number(usage.output_tokens) || 0;
+    const cacheTokens = Number(usage.cache_read_input_tokens) || 0;
     
     // キャッシュトークンは入力トークンの10%のコストとして計算
     const effectiveInputTokens = inputTokens + (cacheTokens * 0.1);
@@ -71,9 +84,8 @@ export class UsageCalculator {
     let turns = 0;
 
     for (const message of messages) {
-      if (message.message?.usage) {
-        const usage = message.message.usage;
-        const cost = this.calculateCost(usage, model);
+      if (message?.message) {
+        const cost = this.calculateCost(message.message.usage, model);
         
         totalInputTokens += cost.inputTokens;
         totalOutputTokens += cost.outputTokens;

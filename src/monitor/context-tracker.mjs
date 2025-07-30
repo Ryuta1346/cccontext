@@ -26,10 +26,33 @@ export class ContextTracker {
   }
 
   updateSession(sessionData) {
+    // null/undefinedチェック
+    if (!sessionData) {
+      return {
+        sessionId: 'unknown',
+        totalTokens: 0,
+        turns: 0,
+        warningLevel: 'normal'
+      };
+    }
+    
     const { sessionId, model, messages } = sessionData;
     
+    // 必須フィールドの検証
+    if (!sessionId || !model) {
+      return {
+        sessionId: sessionId || 'unknown',
+        totalTokens: 0,
+        turns: 0,
+        warningLevel: 'normal'
+      };
+    }
+    
+    // messagesが配列でない場合の処理
+    const validMessages = Array.isArray(messages) ? messages : [];
+    
     // セッション統計を計算
-    const stats = this.calculator.calculateSessionTotals(messages, model);
+    const stats = this.calculator.calculateSessionTotals(validMessages, model);
     const contextWindow = this.getContextWindow(model);
     
     // コンテキスト使用率を計算

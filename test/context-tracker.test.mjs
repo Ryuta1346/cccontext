@@ -1,17 +1,101 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, expect } from 'vitest';
 import { ContextTracker } from '../src/monitor/context-tracker.mjs';
 
 describe('ContextTracker', () => {
+  describe('Error Cases', () => {
+    it('should handle invalid session data gracefully', () => {
+      const tracker = new ContextTracker();
+      
+      // null/undefined session data
+      expect(() => tracker.updateSession(null)).not.toThrow();
+      expect(() => tracker.updateSession(undefined)).not.toThrow();
+      
+      // Missing required fields
+      const invalidData = {
+        sessionId: 'test',
+        // missing model and messages
+      };
+      expect(() => tracker.updateSession(invalidData)).not.toThrow();
+      
+      // Invalid messages array
+      const dataWithInvalidMessages = {
+        sessionId: 'test',
+        model: 'claude-3-5-sonnet-20241022',
+        messages: 'not-an-array'
+      };
+      expect(() => tracker.updateSession(dataWithInvalidMessages)).not.toThrow();
+    });
+
+    it('should handle malformed usage data', () => {
+      const tracker = new ContextTracker();
+      
+      const sessionData = {
+        sessionId: 'test-malformed',
+        model: 'claude-3-5-sonnet-20241022',
+        messages: [
+          {
+            message: {
+              role: 'assistant',
+              usage: null // malformed usage
+            }
+          },
+          {
+            message: {
+              role: 'assistant',
+              usage: { 
+                input_tokens: 'not-a-number',
+                output_tokens: NaN
+              }
+            }
+          },
+          {
+            message: {
+              role: 'assistant',
+              // missing usage field
+            }
+          }
+        ]
+      };
+      
+      const result = tracker.updateSession(sessionData);
+      expect(result.totalTokens).toBe(0);
+      expect(result.turns).toBe(3);
+    });
+
+    it('should handle extremely large token counts', () => {
+      const tracker = new ContextTracker();
+      
+      const sessionData = {
+        sessionId: 'test-overflow',
+        model: 'claude-3-5-sonnet-20241022',
+        messages: [
+          {
+            message: {
+              role: 'assistant',
+              usage: { 
+                input_tokens: Number.MAX_SAFE_INTEGER,
+                output_tokens: 1000
+              }
+            }
+          }
+        ]
+      };
+      
+      const result = tracker.updateSession(sessionData);
+      expect(result.totalTokens).toBeGreaterThan(0);
+      expect(result.warningLevel).toBe('critical');
+    });
+  });
+
   it('should get correct context window size for models', () => {
     const tracker = new ContextTracker();
     
-    assert.equal(tracker.getContextWindow('claude-3-opus-20241022'), 200_000);
-    assert.equal(tracker.getContextWindow('claude-opus-4-20250514'), 200_000);
-    assert.equal(tracker.getContextWindow('claude-3-5-sonnet-20241022'), 200_000);
-    assert.equal(tracker.getContextWindow('claude-2.0'), 100_000);
-    assert.equal(tracker.getContextWindow('claude-instant-1.2'), 100_000);
-    assert.equal(tracker.getContextWindow('unknown-model'), 200_000); // default
+    expect(tracker.getContextWindow('claude-3-opus-20241022')).toBe(200_000);
+    expect(tracker.getContextWindow('claude-opus-4-20250514')).toBe(200_000);
+    expect(tracker.getContextWindow('claude-3-5-sonnet-20241022')).toBe(200_000);
+    expect(tracker.getContextWindow('claude-2.0')).toBe(100_000);
+    expect(tracker.getContextWindow('claude-instant-1.2')).toBe(100_000);
+    expect(tracker.getContextWindow('unknown-model')).toBe(200_000); // default
   });
 
   it('should calculate context usage correctly', () => {
@@ -39,12 +123,12 @@ describe('ContextTracker', () => {
 
     const result = tracker.updateSession(sessionData);
     
-    assert.equal(result.totalTokens, 3000);
-    assert.equal(result.contextWindow, 200_000);
-    assert.equal(result.usagePercentage, 1.5);
-    assert.equal(result.remainingTokens, 197_000);
-    assert.equal(result.turns, 1);
-    assert.equal(result.warningLevel, 'normal');
+    expect(result.totalTokens).toBe(3000);
+    expect(result.contextWindow).toBe(200_000);
+    expect(result.usagePercentage).toBe(1.5);
+    expect(result.remainingTokens).toBe(197_000);
+    expect(result.turns).toBe(1);
+    expect(result.warningLevel).toBe('normal');
   });
 
   it('should set correct warning levels based on usage', () => {
@@ -72,8 +156,7 @@ describe('ContextTracker', () => {
       };
 
       const result = tracker.updateSession(sessionData);
-      assert.equal(result.warningLevel, testCase.expectedLevel,
-        `Expected ${testCase.expectedLevel} for ${testCase.tokens} tokens`);
+      expect(result.warningLevel).toBe(testCase.expectedLevel);
     }
   });
 
@@ -100,7 +183,7 @@ describe('ContextTracker', () => {
 
     const result = tracker.updateSession(sessionData);
     
-    assert.deepEqual(result.latestTurn, {
+    expect(result.latestTurn).toEqual({
       input: 1000,
       output: 2000,
       cache: 500,
@@ -129,15 +212,15 @@ describe('ContextTracker', () => {
 
     const formatted = tracker.formatContextInfo(info);
     
-    assert.equal(formatted.session, 'abcdef12');
-    assert.equal(formatted.usage, '45.7%');
-    assert.equal(formatted.tokens, '91.2k/200.0k');
-    assert.equal(formatted.remaining, '108.8k');
-    assert.equal(formatted.cost, '$0.45');
-    assert.equal(formatted.turns, 10);
-    assert.equal(formatted.avgTokensPerTurn, '9.1k');
-    assert.equal(formatted.estRemainingTurns, '12');
-    assert.equal(formatted.duration, '1h 0m');
+    expect(formatted.session).toBe('abcdef12');
+    expect(formatted.usage).toBe('45.7%');
+    expect(formatted.tokens).toBe('91.2k/200.0k');
+    expect(formatted.remaining).toBe('108.8k');
+    expect(formatted.cost).toBe('$0.45');
+    expect(formatted.turns).toBe(10);
+    expect(formatted.avgTokensPerTurn).toBe('9.1k');
+    expect(formatted.estRemainingTurns).toBe('12');
+    expect(formatted.duration).toBe('1h 0m');
   });
 
   it('should manage sessions correctly', () => {
@@ -158,9 +241,9 @@ describe('ContextTracker', () => {
     tracker.updateSession(sessionData1);
     tracker.updateSession(sessionData2);
     
-    assert.equal(tracker.getAllSessions().length, 2);
-    assert.ok(tracker.getSession('session-1'));
-    assert.ok(tracker.getSession('session-2'));
-    assert.equal(tracker.getSession('non-existent'), undefined);
+    expect(tracker.getAllSessions()).toHaveLength(2);
+    expect(tracker.getSession('session-1')).toBeTruthy();
+    expect(tracker.getSession('session-2')).toBeTruthy();
+    expect(tracker.getSession('non-existent')).toBeUndefined();
   });
 });
