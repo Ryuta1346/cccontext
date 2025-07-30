@@ -4,8 +4,10 @@ import { program } from 'commander';
 import { SessionWatcher } from './monitor/session-watcher.mjs';
 import { ContextTracker } from './monitor/context-tracker.mjs';
 import { LiveView } from './display/live-view.mjs';
+import { SessionsLiveView } from './display/sessions-live-view.mjs';
 import { UsageCalculator } from './monitor/usage-calculator.mjs';
 import chalk from 'chalk';
+import stringWidth from 'string-width';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -15,6 +17,7 @@ class CCContextCLI {
     this.watcher = new SessionWatcher();
     this.tracker = new ContextTracker();
     this.view = null;
+    this.sessionsView = null;
     this.calculator = new UsageCalculator();
   }
 
@@ -82,6 +85,7 @@ class CCContextCLI {
         let model = 'Unknown';
         let turns = 0;
         let totalTokens = 0;
+        let latestPrompt = '';
         
         // 最初と最後のメッセージから情報を抽出
         for (const line of lines) {
@@ -91,6 +95,15 @@ class CCContextCLI {
             if (data.message?.role === 'assistant') turns++;
             if (data.message?.usage) {
               totalTokens += (data.message.usage.input_tokens || 0) + (data.message.usage.output_tokens || 0);
+            }
+            // 最新のユーザープロンプトを取得
+            if (data.message?.role === 'user' && data.message?.content) {
+              const content = Array.isArray(data.message.content) 
+                ? data.message.content.find(c => c.type === 'text')?.text || ''
+                : data.message.content;
+              if (content) {
+                latestPrompt = content;
+              }
             }
           } catch (e) {
             // 無効なJSON行はスキップ
@@ -104,7 +117,8 @@ class CCContextCLI {
           size: stats.size,
           model,
           turns,
-          totalTokens
+          totalTokens,
+          latestPrompt: this.formatPromptForList(latestPrompt)
         });
       }
 
@@ -133,6 +147,11 @@ class CCContextCLI {
           `${chalk.gray('|')} ${chalk.green(session.turns + ' turns')} ` +
           `${chalk.gray('|')} ${chalk.magenta(age)}`
         );
+        
+        // プロンプトの表示（インデント付き）
+        if (session.latestPrompt) {
+          console.log(`    ${chalk.gray('└→')} ${chalk.dim(session.latestPrompt)}`);
+        }
       });
 
       console.log(chalk.gray('━'.repeat(80)));
@@ -165,9 +184,164 @@ class CCContextCLI {
     return `${minutes}m ago`;
   }
 
+  formatPromptForList(prompt) {
+    if (!prompt) return '';
+    
+    const maxLength = 60;
+    const cleanPrompt = prompt.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    // string-widthを使用して正確な表示幅を計算
+    let result = '';
+    let currentWidth = 0;
+    
+    // UTF-16サロゲートペアを適切に処理するためにArray.fromを使用
+    const chars = Array.from(cleanPrompt);
+    
+    for (const char of chars) {
+      const charWidth = stringWidth(char);
+      
+      if (currentWidth + charWidth > maxLength - 3) { // '...'の分を考慮
+        result += '...';
+        break;
+      }
+      
+      result += char;
+      currentWidth += charWidth;
+    }
+    
+    return result;
+  }
+
+  async showSessionsLive(options) {
+    console.log(chalk.cyan('🔍 Starting Claude Code Sessions Monitor...'));
+    
+    // ライブビューの初期化
+    this.sessionsView = new SessionsLiveView();
+    this.sessionsView.init();
+
+    try {
+      // ディレクトリ監視を開始
+      await this.watcher.startDirectoryWatch();
+      
+      // セッション追加/削除/更新イベントをリッスン
+      this.watcher.on('session-added', async ({ sessionId, filePath }) => {
+        console.error(`New session detected: ${sessionId}`); // デバッグ用
+        await updateSessions(); // 新しいセッションが追加されたら更新
+      });
+      
+      this.watcher.on('session-removed', async ({ sessionId, filePath }) => {
+        console.error(`Session removed: ${sessionId}`); // デバッグ用
+        await updateSessions(); // セッションが削除されたら更新
+      });
+      
+      this.watcher.on('session-updated', async ({ sessionId, filePath }) => {
+        console.error(`Session updated: ${sessionId}`); // デバッグ用
+        await updateSessions(); // セッションが更新されたら（/compactなど）更新
+      });
+
+      // セッション情報の更新関数
+      const updateSessions = async () => {
+        try {
+          const files = await this.watcher.getAllJsonlFiles();
+          const sessions = [];
+
+          // 各セッションファイルの情報を収集
+          for (const file of files) {
+            const sessionId = path.basename(file, '.jsonl');
+            const stats = await fs.promises.stat(file);
+            
+            // ファイルの最後の数行を読む（効率化）
+            const content = await fs.promises.readFile(file, 'utf-8');
+            const lines = content.trim().split('\n').filter(line => line);
+            
+            let model = 'Unknown';
+            let turns = 0;
+            let totalTokens = 0;
+            let latestPrompt = '';
+            let totalCost = 0;
+            
+            // メッセージ情報を抽出
+            for (const line of lines) {
+              try {
+                const data = JSON.parse(line);
+                if (data.message?.model) model = data.message.model;
+                if (data.message?.role === 'assistant') turns++;
+                if (data.message?.usage) {
+                  const usage = data.message.usage;
+                  totalTokens += (usage.input_tokens || 0) + (usage.output_tokens || 0);
+                  
+                  // コスト計算
+                  const costData = this.calculator.calculateCost(usage, model);
+                  totalCost += costData.totalCost;
+                }
+                // 最新のユーザープロンプトを取得
+                if (data.message?.role === 'user' && data.message?.content) {
+                  const content = Array.isArray(data.message.content) 
+                    ? data.message.content.find(c => c.type === 'text')?.text || ''
+                    : data.message.content;
+                  if (content) {
+                    latestPrompt = content;
+                  }
+                }
+              } catch (e) {
+                // 無効なJSON行はスキップ
+              }
+            }
+
+            const contextWindow = this.tracker.getContextWindow(model);
+            const usagePercentage = (totalTokens / contextWindow) * 100;
+            const modelName = this.calculator.getModelName(model);
+
+            sessions.push({
+              sessionId,
+              lastModified: stats.mtime,
+              model,
+              modelName,
+              turns,
+              totalTokens,
+              totalCost,
+              usagePercentage,
+              latestPrompt
+            });
+          }
+
+          // 最終更新時刻でソート
+          sessions.sort((a, b) => b.lastModified - a.lastModified);
+
+          // 表示数を制限
+          const limit = parseInt(options.limit) || 20;
+          const displaySessions = sessions.slice(0, limit);
+
+          // ビューを更新
+          this.sessionsView.updateSessions(displaySessions);
+        } catch (error) {
+          this.sessionsView.showError(`Error: ${error.message}`);
+        }
+      };
+
+      // 初回更新
+      await updateSessions();
+
+      // 自動更新を開始
+      this.sessionsView.startAutoRefresh(updateSessions);
+
+      // プロセス終了時のクリーンアップ
+      process.on('SIGINT', () => this.cleanup());
+      process.on('SIGTERM', () => this.cleanup());
+
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error.message}`));
+      this.cleanup();
+      process.exit(1);
+    }
+  }
+
   cleanup() {
     if (this.view) {
       this.view.destroy();
+    }
+    if (this.sessionsView) {
+      this.sessionsView.destroy();
     }
     this.watcher.stopAll();
     process.exit(0);
@@ -195,8 +369,13 @@ program
   .command('sessions')
   .description('List recent Claude Code sessions')
   .option('-l, --limit <number>', 'Number of sessions to show', '10')
+  .option('--live', 'Live monitoring mode')
   .action((options) => {
-    cli.showSessions(options);
+    if (options.live) {
+      cli.showSessionsLive(options);
+    } else {
+      cli.showSessions(options);
+    }
   });
 
 // デフォルトコマンド（引数なしで実行された場合）

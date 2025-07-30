@@ -72,7 +72,9 @@ export class ContextTracker {
       estimatedRemainingTurns,
       warningLevel,
       startTime: sessionData.startTime,
-      lastUpdate: new Date()
+      lastUpdate: new Date(),
+      latestPrompt: sessionData.latestPrompt,
+      latestPromptTime: sessionData.latestPromptTime
     };
     
     // 最新の使用量情報を追加
@@ -119,7 +121,8 @@ export class ContextTracker {
       avgTokensPerTurn: calc.formatTokens(info.averageTokensPerTurn),
       estRemainingTurns: info.estimatedRemainingTurns === Infinity ? '∞' : info.estimatedRemainingTurns.toString(),
       warningLevel: info.warningLevel,
-      duration: this.formatDuration(info.startTime)
+      duration: this.formatDuration(info.startTime),
+      latestPrompt: this.formatPrompt(info.latestPrompt)
     };
   }
 
@@ -147,5 +150,31 @@ export class ContextTracker {
       default:
         return null;
     }
+  }
+
+  formatPrompt(prompt) {
+    if (!prompt) return '';
+    
+    const maxLength = 50;
+    const cleanPrompt = prompt.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    // 日本語文字を考慮した文字数カウント
+    let charCount = 0;
+    let result = '';
+    
+    for (const char of cleanPrompt) {
+      // 日本語文字は2文字分としてカウント
+      const charWidth = char.match(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/) ? 2 : 1;
+      
+      if (charCount + charWidth > maxLength) {
+        result += '...';
+        break;
+      }
+      
+      result += char;
+      charCount += charWidth;
+    }
+    
+    return result;
   }
 }

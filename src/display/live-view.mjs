@@ -13,6 +13,7 @@ export class LiveView {
     // Blessedスクリーンの初期化
     this.screen = blessed.screen({
       smartCSR: true,
+      fullUnicode: true,  // Unicode文字の正しい表示のため
       title: 'Claude Code Context Monitor'
     });
 
@@ -106,10 +107,31 @@ export class LiveView {
       }
     });
 
+    // 最新プロンプトボックス
+    this.boxes.latestPrompt = blessed.box({
+      parent: this.boxes.container,
+      top: 19,
+      left: 0,
+      width: '100%',
+      height: 4,
+      border: {
+        type: 'line',
+        fg: 'gray'
+      },
+      label: ' Latest Prompt ',
+      style: {
+        fg: 'white',
+        bg: 'black',
+        border: {
+          fg: 'gray'
+        }
+      }
+    });
+
     // セッション合計ボックス
     this.boxes.sessionTotals = blessed.box({
       parent: this.boxes.container,
-      top: 19,
+      top: 23,
       left: 0,
       width: '100%',
       height: 6,
@@ -177,6 +199,11 @@ export class LiveView {
       this.boxes.latestTurn.setContent(this.formatLatestTurn(info));
     }
 
+    // 最新プロンプトの更新
+    if (info.latestPrompt) {
+      this.boxes.latestPrompt.setContent(this.formatLatestPrompt(info));
+    }
+
     // セッション合計の更新
     this.boxes.sessionTotals.setContent(this.formatSessionTotals(info));
 
@@ -213,6 +240,19 @@ Input:  ${chalk.blue(this.formatTokens(turn.input))} tokens
 Output: ${chalk.magenta(this.formatTokens(turn.output))} tokens
 Cache:  ${chalk.gray(this.formatTokens(turn.cache))} tokens (read)
 Total:  ${chalk.yellow(this.formatTokens(turn.total))} tokens (${turn.percentage.toFixed(2)}% of window)`;
+  }
+
+  formatLatestPrompt(info) {
+    const prompt = info.latestPrompt || 'No prompt yet';
+    const lines = prompt.split('\n');
+    const maxLines = 2;
+    
+    let displayText = lines.slice(0, maxLines).join(' ').replace(/\s+/g, ' ');
+    if (lines.length > maxLines || displayText.length > 100) {
+      displayText = displayText.substring(0, 100) + '...';
+    }
+    
+    return `\n${chalk.dim(displayText)}`;
   }
 
   formatSessionTotals(info) {

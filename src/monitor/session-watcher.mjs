@@ -11,6 +11,8 @@ export class SessionWatcher extends EventEmitter {
     this.sessions = new Map();
     this.watchers = new Map();
     this.filePositions = new Map();
+    this.directoryWatcher = null;
+    this.cachedFiles = new Set();
   }
 
   async findActiveSession() {
@@ -37,6 +39,11 @@ export class SessionWatcher extends EventEmitter {
   }
 
   async getAllJsonlFiles() {
+    // キャッシュが存在する場合はキャッシュを返す
+    if (this.cachedFiles.size > 0) {
+      return Array.from(this.cachedFiles);
+    }
+
     const files = [];
     
     async function walkDir(dir) {
@@ -58,7 +65,65 @@ export class SessionWatcher extends EventEmitter {
     }
 
     await walkDir(this.projectsDir);
+    
+    // キャッシュを更新
+    this.cachedFiles = new Set(files);
+    
     return files;
+  }
+
+  // キャッシュを無効化して次回フルスキャンを強制
+  invalidateCache() {
+    this.cachedFiles.clear();
+  }
+
+  async startDirectoryWatch() {
+    if (this.directoryWatcher) {
+      return; // 既に監視中
+    }
+
+    // 初回スキャンでキャッシュを作成
+    await this.getAllJsonlFiles();
+
+    // ディレクトリ全体を監視
+    this.directoryWatcher = chokidar.watch(this.projectsDir, {
+      persistent: true,
+      ignoreInitial: true,
+      followSymlinks: false,
+      depth: 10,
+      awaitWriteFinish: {
+        stabilityThreshold: 200,
+        pollInterval: 100
+      }
+    });
+
+    // 新しい.jsonlファイルが追加された時
+    this.directoryWatcher.on('add', (filePath) => {
+      if (path.extname(filePath) === '.jsonl') {
+        this.cachedFiles.add(filePath);
+        const sessionId = path.basename(filePath, '.jsonl');
+        this.emit('session-added', { sessionId, filePath });
+      }
+    });
+
+    // .jsonlファイルが削除された時
+    this.directoryWatcher.on('unlink', (filePath) => {
+      if (path.extname(filePath) === '.jsonl') {
+        this.cachedFiles.delete(filePath);
+        const sessionId = path.basename(filePath, '.jsonl');
+        this.emit('session-removed', { sessionId, filePath });
+      }
+    });
+    
+    // .jsonlファイルが変更された時（/compactなど）
+    this.directoryWatcher.on('change', (filePath) => {
+      if (path.extname(filePath) === '.jsonl') {
+        const sessionId = path.basename(filePath, '.jsonl');
+        this.emit('session-updated', { sessionId, filePath });
+      }
+    });
+
+    this.emit('directory-watch-started');
   }
 
   async watchSession(sessionId, filePath) {
@@ -199,6 +264,18 @@ export class SessionWatcher extends EventEmitter {
       };
     }
 
+    // 最新のユーザープロンプトを保存
+    if (data.message?.role === 'user' && data.message?.content) {
+      const content = Array.isArray(data.message.content) 
+        ? data.message.content.find(c => c.type === 'text')?.text || ''
+        : data.message.content;
+      
+      if (content) {
+        sessionData.latestPrompt = content;
+        sessionData.latestPromptTime = data.timestamp;
+      }
+    }
+
     sessionData.messages.push(data);
   }
 
@@ -217,5 +294,14 @@ export class SessionWatcher extends EventEmitter {
     for (const sessionId of this.watchers.keys()) {
       this.stopWatching(sessionId);
     }
+    
+    // ディレクトリ監視も停止
+    if (this.directoryWatcher) {
+      this.directoryWatcher.close();
+      this.directoryWatcher = null;
+    }
+    
+    // キャッシュをクリア
+    this.cachedFiles.clear();
   }
 }
