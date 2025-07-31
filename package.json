@@ -1,0 +1,61 @@
+{
+  "name": "cccontext",
+  "version": "0.1.0",
+  "description": "Real-time context usage monitor for Claude Code",
+  "type": "module",
+  "main": "src/cli.mjs",
+  "bin": {
+    "cccontext": "./bin/cccontext"
+  },
+  "scripts": {
+    "start": "node src/cli.mjs",
+    "monitor": "node src/cli.mjs monitor --live",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "context",
+    "monitor",
+    "usage",
+    "tokens"
+  ],
+  "author": "ryuta",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ryuta/cccontext.git"
+  },
+  "homepage": "https://github.com/ryuta/cccontext#readme",
+  "bugs": {
+    "url": "https://github.com/ryuta/cccontext/issues"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "chalk": "^5.3.0",
+    "chokidar": "^4.0.1",
+    "commander": "^12.1.0",
+    "string-width": "^7.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
+    "c8": "^10.1.3",
+    "vitest": "^3.2.4"
+  }
+}
