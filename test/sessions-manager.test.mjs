@@ -12,7 +12,7 @@ vi.mock('../src/monitor/session-cache.mjs', () => {
       const cache = new Map();
       const fileStats = new Map();
       
-      return {
+      const mockCache = {
         cache,
         fileStats,
         clearSession: vi.fn((filePath) => {
@@ -23,7 +23,7 @@ vi.mock('../src/monitor/session-cache.mjs', () => {
           cache.clear();
           fileStats.clear();
         }),
-        parseSessionFile: vi.fn(async (filePath) => {
+        parseAndCacheSession: vi.fn(async (filePath) => {
           // This is what the code calls, but actual method is parseAndCacheSession
           const sessionId = path.basename(filePath, '.jsonl');
           
@@ -105,6 +105,9 @@ vi.mock('../src/monitor/session-cache.mjs', () => {
           return (sessionData.totalTokens / contextWindow) * 100;
         })
       };
+      // Add parseSessionFile as an alias for backward compatibility
+      mockCache.parseSessionFile = mockCache.parseAndCacheSession;
+      return mockCache;
     })
   };
 });
@@ -216,9 +219,9 @@ describe('SessionsManager', () => {
         'invalid json content'
       );
       
-      // Mock parseSessionFile to return null for this specific file
-      const originalParse = manager.cache.parseSessionFile;
-      manager.cache.parseSessionFile = vi.fn(async (filePath) => {
+      // Mock parseAndCacheSession to return null for this specific file
+      const originalParse = manager.cache.parseAndCacheSession;
+      manager.cache.parseAndCacheSession = vi.fn(async (filePath) => {
         if (filePath.includes('invalid.jsonl')) {
           return null;
         }
@@ -287,6 +290,8 @@ describe('SessionsManager', () => {
         }
       }) + '\n');
       
+      // Simulate what the watcher does when a file is added
+      manager.watcher.cachedFiles.add(newFile);
       manager.watcher.emit('session-added', { sessionId: 'new-session', filePath: newFile });
       
       // Wait for batch processing
@@ -313,6 +318,11 @@ describe('SessionsManager', () => {
       await manager.loadAllSessions();
       
       // Verify cache is cleared when session is removed
+      // First ensure the file is in the cache
+      manager.watcher.cachedFiles.add(sessionFile);
+      
+      // Then simulate removal
+      manager.watcher.cachedFiles.delete(sessionFile);
       manager.watcher.emit('session-removed', { sessionId: 'remove-me', filePath: sessionFile });
       
       // Check that cache was cleared
@@ -575,9 +585,9 @@ describe('SessionsManager', () => {
         'invalid json'
       );
       
-      // Mock parseSessionFile to return null for invalid file
-      const originalParse = manager.cache.parseSessionFile;
-      manager.cache.parseSessionFile = vi.fn(async (filePath) => {
+      // Mock parseAndCacheSession to return null for invalid file
+      const originalParse = manager.cache.parseAndCacheSession;
+      manager.cache.parseAndCacheSession = vi.fn(async (filePath) => {
         if (filePath.includes('invalid.jsonl')) {
           return null;
         }

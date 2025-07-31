@@ -10,6 +10,11 @@ export const PRICING = {
     output: 75.00,
     name: 'Claude Opus 4'
   },
+  'claude-sonnet-4-20250514': {
+    input: 2.25,
+    output: 11.25,
+    name: 'Claude Sonnet 4'
+  },
   'claude-3-5-sonnet-20241022': {
     input: 3.00,
     output: 15.00,
@@ -31,7 +36,7 @@ export const PRICING = {
 const DEFAULT_PRICING = {
   input: 3.00,
   output: 15.00,
-  name: 'Unknown Model'
+  name: 'Unknown Model!'
 };
 
 export class UsageCalculator {

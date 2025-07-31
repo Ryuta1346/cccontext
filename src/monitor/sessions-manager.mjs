@@ -72,7 +72,7 @@ export class SessionsManager extends EventEmitter {
 
   async loadSession(filePath) {
     try {
-      const sessionData = await this.cache.parseSessionFile(filePath);
+      const sessionData = await this.cache.parseAndCacheSession(filePath);
       const contextInfo = this.contextTracker.updateSession({
         sessionId: sessionData.sessionId,
         model: sessionData.model,

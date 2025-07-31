@@ -147,7 +147,7 @@ export class SessionsLiveView {
     const headers = [
       'Session',
       'Usage',
-      'Model',
+      'Model(latest)',
       'Turns',
       'Cost',
       'Last Active',
@@ -171,7 +171,7 @@ export class SessionsLiveView {
       [
         'Session',
         'Usage',
-        'Model',
+        'Model(latest)',
         'Turns',
         'Cost',
         'Last Active',

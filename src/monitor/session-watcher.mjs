@@ -287,8 +287,8 @@ export class SessionWatcher extends EventEmitter {
       sessionData.startTime = new Date(data.timestamp);
     }
 
-    // モデル情報の抽出
-    if (data.message?.model && !sessionData.model) {
+    // モデル情報の抽出（最新のものを優先、ただし既存の情報を保持）
+    if (data.message?.model) {
       sessionData.model = data.message.model;
     }
 

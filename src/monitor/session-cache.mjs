@@ -96,6 +96,19 @@ export class SessionCache {
       let firstTimestamp = null;
       let lastTimestamp = null;
 
+      // 最新のモデル情報を取得（逆順で最初に見つかったもの）
+      for (let i = lines.length - 1; i >= 0 && model === 'Unknown'; i--) {
+        try {
+          const data = JSON.parse(lines[i]);
+          if (data.message?.model) {
+            model = data.message.model;
+            modelName = this.getModelName(model);
+          }
+        } catch (e) {
+          // 無効なJSON行はスキップ
+        }
+      }
+
       // 効率的な処理：逆順で最新プロンプトを先に見つける
       for (let i = lines.length - 1; i >= 0; i--) {
         try {
@@ -107,11 +120,7 @@ export class SessionCache {
             firstTimestamp = data.timestamp; // 継続的に更新されて最古になる
           }
 
-          // モデル情報（最初に見つかったもの）
-          if (data.message?.model && model === 'Unknown') {
-            model = data.message.model;
-            modelName = this.getModelName(model);
-          }
+          // モデル情報は既に取得済み（最新のものを使用）
 
           // 使用量とコストの計算
           if (data.message?.usage) {
