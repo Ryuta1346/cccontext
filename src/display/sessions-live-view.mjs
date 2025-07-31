@@ -208,14 +208,17 @@ export class SessionsLiveView {
   }
 
   formatUsage(percentage) {
+    // percentageがundefinedまたはnullの場合のデフォルト値
+    const safePercentage = percentage ?? 0;
+    
     const width = 10;
-    const filled = Math.round((percentage / 100) * width);
+    const filled = Math.round((safePercentage / 100) * width);
     const empty = width - filled;
     
     // 通常のsessionsコマンドと同じ形式でプログレスバーを作成
     const bar = '█'.repeat(filled) + '░'.repeat(empty);
     
-    const percentStr = percentage.toFixed(1) + '%';
+    const percentStr = safePercentage.toFixed(1) + '%';
     return `[${bar}] ${percentStr.padStart(5)}`;
   }
 
@@ -234,7 +237,8 @@ export class SessionsLiveView {
   }
 
   formatCost(cost) {
-    return `$${cost.toFixed(2)}`;
+    const safeCost = cost ?? 0;
+    return `$${safeCost.toFixed(2)}`;
   }
 
   truncatePrompt(prompt, maxLength) {

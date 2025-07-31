@@ -91,6 +91,9 @@ export class SessionWatcher extends EventEmitter {
       ignoreInitial: true,
       followSymlinks: false,
       depth: 10,
+      usePolling: true,
+      interval: 100,
+      binaryInterval: 100,
       awaitWriteFinish: {
         stabilityThreshold: 500,
         pollInterval: 50

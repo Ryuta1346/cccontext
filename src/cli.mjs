@@ -21,6 +21,7 @@ class CCContextCLI {
     this.view = null;
     this.sessionsView = null;
     this.calculator = new UsageCalculator();
+    this.watchedSessions = new Map();
   }
 
   async monitorLive(options) {
@@ -81,47 +82,31 @@ class CCContextCLI {
       for (const file of files) {
         const sessionId = path.basename(file, '.jsonl');
         const stats = await fs.promises.stat(file);
-        const content = await fs.promises.readFile(file, 'utf-8');
-        const lines = content.trim().split('\n').filter(line => line);
         
-        let model = 'Unknown';
-        let turns = 0;
-        let totalTokens = 0;
-        let latestPrompt = '';
+        // monitor --liveと同じ方法でセッションデータを読み込む
+        const tempWatcher = new SessionWatcher();
         
-        // 最初と最後のメッセージから情報を抽出
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line);
-            if (data.message?.model) model = data.message.model;
-            if (data.message?.role === 'assistant') turns++;
-            if (data.message?.usage) {
-              totalTokens += (data.message.usage.input_tokens || 0) + (data.message.usage.output_tokens || 0);
-            }
-            // 最新のユーザープロンプトを取得
-            if (data.message?.role === 'user' && data.message?.content) {
-              const content = Array.isArray(data.message.content) 
-                ? data.message.content.find(c => c.type === 'text')?.text || ''
-                : data.message.content;
-              if (content) {
-                latestPrompt = content;
-              }
-            }
-          } catch (e) {
-            // 無効なJSON行はスキップ
-          }
-        }
-
-        sessions.push({
-          sessionId,
-          file,
-          lastModified: stats.mtime,
-          size: stats.size,
-          model,
-          turns,
-          totalTokens,
-          latestPrompt: this.formatPromptForList(latestPrompt)
+        let sessionData = null;
+        tempWatcher.once('session-data', (data) => {
+          sessionData = data;
         });
+        
+        await tempWatcher.readExistingData(sessionId, file, false);
+        
+        if (sessionData) {
+          const contextInfo = this.tracker.updateSession(sessionData);
+          
+          sessions.push({
+            sessionId,
+            file,
+            lastModified: stats.mtime,
+            size: stats.size,
+            model: sessionData.model,
+            turns: sessionData.turns,
+            totalTokens: sessionData.totalTokens,
+            latestPrompt: this.formatPromptForList(sessionData.latestPrompt)
+          });
+        }
       }
 
       // 最終更新時刻でソート
@@ -222,120 +207,78 @@ class CCContextCLI {
     this.sessionsView.init();
 
     try {
-      // ディレクトリ監視を開始
+      // 全セッションファイルを取得
+      const files = await this.watcher.getAllJsonlFiles();
+      const limit = parseInt(options.limit || 20);
+      
+      // 最新のファイルから順に処理
+      const sortedFiles = await this.getSortedFilesByMtime(files);
+      const filesToWatch = sortedFiles.slice(0, limit);
+      
+      // 初期セッションリスト
+      const sessions = [];
+      
+      // 各セッションに対してwatchSessionを開始
+      for (const file of filesToWatch) {
+        const sessionId = path.basename(file, '.jsonl');
+        const stats = await fs.promises.stat(file);
+        
+        // 個別のSessionWatcherインスタンスを作成
+        const sessionWatcher = new SessionWatcher();
+        
+        // イベントハンドラー設定
+        sessionWatcher.on('session-data', (sessionData) => {
+          const contextInfo = this.tracker.updateSession(sessionData);
+          this.updateSessionInView(sessionId, sessionData, contextInfo, stats.mtime);
+        });
+        
+        sessionWatcher.on('message', ({ sessionData }) => {
+          const contextInfo = this.tracker.updateSession(sessionData);
+          this.updateSessionInView(sessionId, sessionData, contextInfo, new Date());
+        });
+        
+        sessionWatcher.on('error', ({ error }) => {
+          if (options.debug) {
+            console.error(`[DEBUG] Error in session ${sessionId}: ${error.message}`);
+          }
+        });
+        
+        // watchSessionを開始
+        await sessionWatcher.watchSession(sessionId, file);
+        this.watchedSessions.set(sessionId, sessionWatcher);
+        
+        // 初期データを取得してセッションリストに追加
+        const sessionData = sessionWatcher.sessions.get(sessionId);
+        if (sessionData) {
+          const contextInfo = this.tracker.updateSession(sessionData);
+          sessions.push({
+            sessionId,
+            lastModified: stats.mtime,
+            model: sessionData.model,
+            modelName: contextInfo.modelName,
+            turns: sessionData.turns,
+            totalTokens: sessionData.totalTokens,
+            totalCost: contextInfo.totalCost,
+            usagePercentage: contextInfo.usagePercentage,
+            latestPrompt: sessionData.latestPrompt
+          });
+        }
+      }
+      
+      // 初期表示
+      this.sessionsView.updateSessions(sessions);
+      
+      // ディレクトリ監視（新規セッション追加/削除用）
       await this.watcher.startDirectoryWatch();
       
-      // セッション追加/削除/更新イベントをリッスン
       this.watcher.on('session-added', async ({ sessionId, filePath }) => {
-        await updateSessions(); // 新しいセッションが追加されたら更新
+        await this.addSessionWatch(sessionId, filePath, options);
       });
       
-      this.watcher.on('session-removed', async ({ sessionId, filePath }) => {
-        await updateSessions(); // セッションが削除されたら更新
+      this.watcher.on('session-removed', ({ sessionId }) => {
+        this.removeSessionWatch(sessionId);
       });
       
-      this.watcher.on('session-updated', async ({ sessionId, filePath }) => {
-        await updateSessions(); // セッションが更新されたら（/compactなど）更新
-      });
-
-      // セッション情報の更新関数
-      const updateSessions = async () => {
-        try {
-          // キャッシュを無効化して最新のファイルリストを取得
-          this.watcher.invalidateCache();
-          const files = await this.watcher.getAllJsonlFiles();
-          const sessions = [];
-          
-          // デバッグ: 更新が呼ばれていることを確認
-          if (options.debug) {
-            console.error(`[DEBUG] updateSessions called, found ${files.length} files`);
-          }
-
-          // 各セッションファイルの情報を収集
-          for (const file of files) {
-            const sessionId = path.basename(file, '.jsonl');
-            const stats = await fs.promises.stat(file);
-            
-            // ファイルの最後の数行を読む（効率化）
-            const content = await fs.promises.readFile(file, 'utf-8');
-            const lines = content.trim().split('\n').filter(line => line);
-            
-            let model = 'Unknown';
-            let turns = 0;
-            let totalTokens = 0;
-            let latestPrompt = '';
-            let totalCost = 0;
-            
-            // メッセージ情報を抽出
-            for (const line of lines) {
-              try {
-                const data = JSON.parse(line);
-                if (data.message?.model) model = data.message.model;
-                if (data.message?.role === 'assistant') turns++;
-                if (data.message?.usage) {
-                  const usage = data.message.usage;
-                  totalTokens += (usage.input_tokens || 0) + (usage.output_tokens || 0);
-                  
-                  // コスト計算
-                  const costData = this.calculator.calculateCost(usage, model);
-                  totalCost += costData.totalCost;
-                }
-                // 最新のユーザープロンプトを取得
-                if (data.message?.role === 'user' && data.message?.content) {
-                  const content = Array.isArray(data.message.content) 
-                    ? data.message.content.find(c => c.type === 'text')?.text || ''
-                    : data.message.content;
-                  if (content) {
-                    latestPrompt = content;
-                  }
-                }
-              } catch (e) {
-                // 無効なJSON行はスキップ
-              }
-            }
-
-            const contextWindow = this.tracker.getContextWindow(model);
-            const usagePercentage = (totalTokens / contextWindow) * 100;
-            const modelName = this.calculator.getModelName(model);
-
-            sessions.push({
-              sessionId,
-              lastModified: stats.mtime,
-              model,
-              modelName,
-              turns,
-              totalTokens,
-              totalCost,
-              usagePercentage,
-              latestPrompt
-            });
-          }
-
-          // 最終更新時刻でソート
-          sessions.sort((a, b) => b.lastModified - a.lastModified);
-
-          // 表示数を制限
-          const limit = parseInt(options.limit || 20);
-          const displaySessions = sessions.slice(0, limit);
-
-          // ビューを更新
-          this.sessionsView.updateSessions(displaySessions);
-          
-          // デバッグ: 更新が完了したことを確認
-          if (options.debug) {
-            console.error(`[DEBUG] View updated with ${displaySessions.length} sessions`);
-          }
-        } catch (error) {
-          this.sessionsView.showError(`Error: ${error.message}`);
-        }
-      };
-
-      // 初回更新
-      await updateSessions();
-
-      // 自動更新を開始
-      this.sessionsView.startAutoRefresh(updateSessions);
-
       // プロセス終了時のクリーンアップ
       process.on('SIGINT', () => this.cleanup());
       process.on('SIGTERM', () => this.cleanup());
@@ -426,7 +369,105 @@ class CCContextCLI {
     }
   }
 
+  async getSortedFilesByMtime(files) {
+    const filesWithStats = await Promise.all(
+      files.map(async (file) => {
+        const stats = await fs.promises.stat(file);
+        return { file, mtime: stats.mtime };
+      })
+    );
+    
+    filesWithStats.sort((a, b) => b.mtime - a.mtime);
+    return filesWithStats.map(f => f.file);
+  }
+
+  updateSessionInView(sessionId, sessionData, contextInfo, lastModified) {
+    // 現在の表示セッションリストを取得
+    const currentSessions = this.sessionsView.sessions || [];
+    
+    // 該当セッションを更新
+    const updatedSessions = currentSessions.map(session => {
+      if (session.sessionId === sessionId) {
+        return {
+          ...session,
+          model: sessionData.model,
+          modelName: contextInfo.modelName,
+          turns: sessionData.turns,
+          totalTokens: sessionData.totalTokens,
+          totalCost: contextInfo.totalCost,
+          usagePercentage: contextInfo.usagePercentage,
+          latestPrompt: sessionData.latestPrompt,
+          lastModified: lastModified
+        };
+      }
+      return session;
+    });
+    
+    // セッションが存在しない場合は追加
+    if (!updatedSessions.find(s => s.sessionId === sessionId)) {
+      updatedSessions.push({
+        sessionId,
+        model: sessionData.model,
+        modelName: contextInfo.modelName,
+        turns: sessionData.turns,
+        totalTokens: sessionData.totalTokens,
+        totalCost: contextInfo.totalCost,
+        usagePercentage: contextInfo.usagePercentage,
+        latestPrompt: sessionData.latestPrompt,
+        lastModified: lastModified
+      });
+    }
+    
+    // ソートして表示更新
+    updatedSessions.sort((a, b) => b.lastModified - a.lastModified);
+    this.sessionsView.updateSessions(updatedSessions);
+  }
+
+  async addSessionWatch(sessionId, filePath, options) {
+    if (this.watchedSessions.has(sessionId)) return;
+    
+    const sessionWatcher = new SessionWatcher();
+    
+    sessionWatcher.on('session-data', (sessionData) => {
+      const contextInfo = this.tracker.updateSession(sessionData);
+      this.updateSessionInView(sessionId, sessionData, contextInfo, new Date());
+    });
+    
+    sessionWatcher.on('message', ({ sessionData }) => {
+      const contextInfo = this.tracker.updateSession(sessionData);
+      this.updateSessionInView(sessionId, sessionData, contextInfo, new Date());
+    });
+    
+    sessionWatcher.on('error', ({ error }) => {
+      if (options.debug) {
+        console.error(`[DEBUG] Error in session ${sessionId}: ${error.message}`);
+      }
+    });
+    
+    await sessionWatcher.watchSession(sessionId, filePath);
+    this.watchedSessions.set(sessionId, sessionWatcher);
+  }
+
+  removeSessionWatch(sessionId) {
+    const watcher = this.watchedSessions.get(sessionId);
+    if (watcher) {
+      watcher.stopWatching(sessionId);
+      this.watchedSessions.delete(sessionId);
+      
+      // ビューからも削除
+      const currentSessions = this.sessionsView.sessions || [];
+      const updatedSessions = currentSessions.filter(s => s.sessionId !== sessionId);
+      this.sessionsView.updateSessions(updatedSessions);
+    }
+  }
+
   cleanup() {
+    // 全ての個別セッション監視を停止
+    for (const [sessionId, watcher] of this.watchedSessions) {
+      watcher.stopWatching(sessionId);
+    }
+    this.watchedSessions.clear();
+    
     if (this.view) {
       this.view.destroy();
     }
