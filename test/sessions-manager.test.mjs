@@ -270,17 +270,14 @@ describe('SessionsManager', () => {
     });
 
     it('should handle session-added event', async () => {
-      const projectDir = path.join(tempDir, 'test-project');
-      await fs.mkdir(projectDir, { recursive: true });
-      
       let updateEmitted = false;
       manager.on('sessions-updated', (sessions) => {
         updateEmitted = true;
         expect(sessions.some(s => s.sessionId === 'new-session')).toBe(true);
       });
       
-      // Simulate session added
-      const newFile = path.join(projectDir, 'new-session.jsonl');
+      // Simulate session added - create file directly in tempDir
+      const newFile = path.join(tempDir, 'new-session.jsonl');
       await fs.writeFile(newFile, JSON.stringify({
         timestamp: '2025-01-01T00:00:00Z',
         message: {

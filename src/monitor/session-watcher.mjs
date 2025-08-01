@@ -299,7 +299,7 @@ export class SessionWatcher extends EventEmitter {
       const outputTokens = usage.output_tokens || 0;
       const cacheTokens = usage.cache_read_input_tokens || 0;
       
-      sessionData.totalTokens += inputTokens + outputTokens;
+      sessionData.totalTokens += inputTokens + outputTokens + cacheTokens;
       
       // ターン数のカウント（assistantメッセージでカウント）
       if (data.message?.role === 'assistant') {

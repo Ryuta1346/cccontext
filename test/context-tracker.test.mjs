@@ -183,13 +183,11 @@ describe('ContextTracker', () => {
 
     const result = tracker.updateSession(sessionData);
     
-    expect(result.latestTurn).toEqual({
-      input: 1000,
-      output: 2000,
-      cache: 500,
-      total: 3000,
-      percentage: 1.5
-    });
+    expect(result.latestTurn.input).toBe(1000);
+    expect(result.latestTurn.output).toBe(2000);
+    expect(result.latestTurn.cache).toBe(500);
+    expect(result.latestTurn.total).toBe(3500);  // 1000 + 2000 + 500
+    expect(result.latestTurn.percentage).toBeCloseTo(1.75, 5);  // 3500 / 200000 * 100
   });
 
   it('should format context info correctly', () => {

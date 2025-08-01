@@ -106,8 +106,8 @@ export class ContextTracker {
         input: sessionData.latestUsage.input,
         output: sessionData.latestUsage.output,
         cache: sessionData.latestUsage.cache,
-        total: sessionData.latestUsage.input + sessionData.latestUsage.output,
-        percentage: ((sessionData.latestUsage.input + sessionData.latestUsage.output) / contextWindow) * 100
+        total: sessionData.latestUsage.input + sessionData.latestUsage.output + sessionData.latestUsage.cache,
+        percentage: ((sessionData.latestUsage.input + sessionData.latestUsage.output + sessionData.latestUsage.cache) / contextWindow) * 100
       };
     }
     

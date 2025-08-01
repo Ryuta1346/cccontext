@@ -162,7 +162,7 @@ describe('UsageCalculator', () => {
     // Output cost: 2000 / 1M * $15 = 0.03
     expect(result.outputCost.toFixed(5)).toBe('0.03000');
     expect(result.totalCost.toFixed(5)).toBe('0.03315');
-    expect(result.totalTokens).toBe(3000);
+    expect(result.totalTokens).toBe(3500); // 1000 + 2000 + 500
   });
 
   it('should use default pricing for unknown models', () => {
@@ -196,6 +196,7 @@ describe('UsageCalculator', () => {
     expect(result.inputCost).toBe(0.003);
     expect(result.outputCost).toBe(0);
     expect(result.totalCost).toBe(0.003);
+    expect(result.totalTokens).toBe(10000); // cache tokens are included in total
   });
 
   it('should calculate session totals correctly', () => {
@@ -246,9 +247,9 @@ describe('UsageCalculator', () => {
     expect(result.totalInputTokens).toBe(300); // 100 + 50 + 150 + 0
     expect(result.totalOutputTokens).toBe(500); // 0 + 200 + 0 + 300
     expect(result.totalCacheTokens).toBe(100);
-    expect(result.totalTokens).toBe(800);
+    expect(result.totalTokens).toBe(900); // 300 + 500 + 100
     expect(result.turns).toBe(2); // 2 assistant messages
-    expect(result.averageTokensPerTurn).toBe(400); // 800 / 2
+    expect(result.averageTokensPerTurn).toBe(450); // 900 / 2
     
     // Cost: (300 + 100*0.1) / 1M * $3 + 500 / 1M * $15
     const expectedCost = 0.00093 + 0.0075;
@@ -428,7 +429,7 @@ describe('UsageCalculator', () => {
       expect(result.inputTokens).toBe(0.5);
       expect(result.outputTokens).toBe(1.7);
       expect(result.cacheTokens).toBe(2.3);
-      expect(result.totalTokens).toBeCloseTo(2.2, 5); // 0.5 + 1.7
+      expect(result.totalTokens).toBeCloseTo(4.5, 5); // 0.5 + 1.7 + 2.3
     });
 
     it('should handle Infinity in calculations', () => {
@@ -451,6 +452,60 @@ describe('UsageCalculator', () => {
       expect(calculator.getModelName('claude-3-5-haiku-20241022')).toBe('Claude 3.5 Haiku');
       expect(calculator.getModelName('claude-3-haiku-20240307')).toBe('Claude 3 Haiku');
       expect(calculator.getModelName('non-existent-model')).toBe('Unknown Model');
+    });
+
+    it('should include cache tokens in context window calculation', () => {
+      const calculator = new UsageCalculator();
+      
+      // Test that cache tokens contribute to context window usage
+      const messages = [
+        {
+          message: {
+            role: 'assistant',
+            usage: {
+              input_tokens: 1000,
+              output_tokens: 2000,
+              cache_read_input_tokens: 5000
+            }
+          }
+        }
+      ];
+      
+      const result = calculator.calculateSessionTotals(messages, 'claude-3-5-sonnet-20241022');
+      
+      // Total tokens should include cache tokens for context window calculation
+      expect(result.totalTokens).toBe(8000); // 1000 + 2000 + 5000
+      expect(result.totalInputTokens).toBe(1000);
+      expect(result.totalOutputTokens).toBe(2000);
+      expect(result.totalCacheTokens).toBe(5000);
+      expect(result.averageTokensPerTurn).toBe(8000); // All tokens count for context
+    });
+
+    it('should correctly calculate remaining turns with cache tokens', () => {
+      const calculator = new UsageCalculator();
+      
+      // Simulate messages with cache tokens
+      const messages = [
+        {
+          message: {
+            role: 'assistant',
+            usage: {
+              input_tokens: 10000,
+              output_tokens: 20000,
+              cache_read_input_tokens: 50000
+            }
+          }
+        }
+      ];
+      
+      const stats = calculator.calculateSessionTotals(messages, 'claude-3-5-sonnet-20241022');
+      
+      // With cache tokens included, average per turn is 80,000
+      expect(stats.averageTokensPerTurn).toBe(80000);
+      
+      // Test remaining turns calculation
+      const remaining = calculator.estimateRemainingTurns(80000, 200000, stats.averageTokensPerTurn);
+      expect(remaining).toBe(1); // (200k - 80k) / 80k = 1.5 → 1
     });
   });
 });
