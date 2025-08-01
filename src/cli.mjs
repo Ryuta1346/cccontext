@@ -152,10 +152,11 @@ class CCContextCLI {
 
   createMiniProgressBar(percentage) {
     const width = 10;
-    const filled = Math.round((percentage / 100) * width);
-    const empty = width - filled;
+    const safePercentage = Math.max(0, Math.min(100, percentage || 0));
+    const filled = Math.max(0, Math.min(width, Math.round((safePercentage / 100) * width)));
+    const empty = Math.max(0, width - filled);
     
-    const color = percentage >= 80 ? 'red' : percentage >= 60 ? 'yellow' : 'green';
+    const color = safePercentage >= 80 ? 'red' : safePercentage >= 60 ? 'yellow' : 'green';
     return chalk[color]('█'.repeat(filled)) + chalk.gray('░'.repeat(empty));
   }
 
@@ -260,7 +261,8 @@ class CCContextCLI {
             totalTokens: sessionData.totalTokens,
             totalCost: contextInfo.totalCost,
             usagePercentage: contextInfo.usagePercentage,
-            latestPrompt: sessionData.latestPrompt
+            latestPrompt: sessionData.latestPrompt,
+            autoCompact: contextInfo.autoCompact
           });
         }
       }
@@ -397,7 +399,8 @@ class CCContextCLI {
           totalCost: contextInfo.totalCost,
           usagePercentage: contextInfo.usagePercentage,
           latestPrompt: sessionData.latestPrompt,
-          lastModified: lastModified
+          lastModified: lastModified,
+          autoCompact: contextInfo.autoCompact
         };
       }
       return session;
@@ -414,7 +417,8 @@ class CCContextCLI {
         totalCost: contextInfo.totalCost,
         usagePercentage: contextInfo.usagePercentage,
         latestPrompt: sessionData.latestPrompt,
-        lastModified: lastModified
+        lastModified: lastModified,
+        autoCompact: contextInfo.autoCompact
       });
     }
     

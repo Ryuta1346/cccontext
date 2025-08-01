@@ -133,9 +133,9 @@ describe('SessionWatcher', () => {
           }
         }
       });
-      // When adding string 'abc' to number, JavaScript concatenates: -100 + 'abc' + 0 = '-100abc0'
+      // When adding string 'abc' to number, JavaScript concatenates: -100 + 'abc' = '-100abc'
       expect(typeof sessionData.totalTokens).toBe('string');
-      expect(sessionData.totalTokens).toBe('0-100abc0'); // 0 + (-100 + 'abc' + 0)
+      expect(sessionData.totalTokens).toBe('0-100abc'); // 0 + (-100 + 'abc')
 
       // Completely invalid message structure - skip null since it causes error
       watcher.processMessage(sessionData, {});
@@ -239,7 +239,7 @@ describe('SessionWatcher', () => {
       }
     });
 
-    expect(sessionData.totalTokens).toBe(350); // 100 + 200 + 50
+    expect(sessionData.totalTokens).toBe(300); // 100 + 200 (cacheは含めない)
     expect(sessionData.turns).toBe(1); // assistantメッセージで+1
     expect(sessionData.latestUsage).toEqual({
       input: 0,
@@ -271,7 +271,7 @@ describe('SessionWatcher', () => {
       }
     });
 
-    expect(sessionData.totalTokens).toBe(3500); // input + output + cache
+    expect(sessionData.totalTokens).toBe(3000); // input + output (cacheは含めない)
     expect(sessionData.latestUsage.cache).toBe(500);
   });
 

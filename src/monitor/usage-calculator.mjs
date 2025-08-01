@@ -77,7 +77,7 @@ export class UsageCalculator {
       inputTokens,
       outputTokens,
       cacheTokens,
-      totalTokens: inputTokens + outputTokens + cacheTokens
+      totalTokens: inputTokens + outputTokens
     };
   }
 
@@ -107,10 +107,10 @@ export class UsageCalculator {
       totalInputTokens,
       totalOutputTokens,
       totalCacheTokens,
-      totalTokens: totalInputTokens + totalOutputTokens + totalCacheTokens,
+      totalTokens: totalInputTokens + totalOutputTokens,
       totalCost,
       turns,
-      averageTokensPerTurn: turns > 0 ? Math.round((totalInputTokens + totalOutputTokens + totalCacheTokens) / turns) : 0
+      averageTokensPerTurn: turns > 0 ? Math.round((totalInputTokens + totalOutputTokens) / turns) : 0
     };
   }
 

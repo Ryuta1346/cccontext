@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { SessionWatcher } from './session-watcher.mjs';
 import { SessionCache } from './session-cache.mjs';
+import { ContextTracker } from './context-tracker.mjs';
 
 /**
  * イベント駆動のセッション管理システム
@@ -11,6 +12,7 @@ export class EnhancedSessionsManager extends EventEmitter {
     super();
     this.watcher = new SessionWatcher();
     this.cache = new SessionCache();
+    this.contextTracker = new ContextTracker();
     this.updateBatch = new Set(); // バッチ更新用
     this.batchTimeout = null;
     this.isInitialized = false;
@@ -103,7 +105,31 @@ export class EnhancedSessionsManager extends EventEmitter {
    */
   async loadSingleSession(filePath) {
     try {
-      return await this.cache.parseAndCacheSession(filePath);
+      const sessionData = await this.cache.parseAndCacheSession(filePath);
+      if (!sessionData) return null;
+
+      // ContextTrackerで追加情報（autoCompactを含む）を生成
+      const contextInfo = this.contextTracker.updateSession({
+        sessionId: sessionData.sessionId,
+        model: sessionData.model,
+        messages: [], // We're using parsed data, not raw messages
+        startTime: sessionData.firstTimestamp,
+        latestPrompt: sessionData.latestPrompt,
+        latestPromptTime: sessionData.lastTimestamp,
+        // Pass through pre-calculated values
+        totalTokens: sessionData.totalTokens,
+        totalInputTokens: sessionData.totalInputTokens,
+        totalOutputTokens: sessionData.totalOutputTokens,
+        totalCacheTokens: sessionData.totalCacheTokens,
+        totalCost: sessionData.totalCost,
+        turns: sessionData.turns
+      });
+
+      // Return all context info including autoCompact
+      return {
+        ...contextInfo,
+        lastModified: sessionData.lastModified
+      };
     } catch (error) {
       this.log(`Error loading session ${filePath}: ${error.message}`);
       return null;

@@ -1,4 +1,5 @@
 import { UsageCalculator } from './usage-calculator.mjs';
+import { AUTO_COMPACT_CONFIG } from './auto-compact-config.mjs';
 
 // モデル別のコンテキストウィンドウサイズ
 export const CONTEXT_WINDOWS = {
@@ -67,6 +68,12 @@ export class ContextTracker {
       stats.averageTokensPerTurn
     );
     
+    // AutoCompact情報の計算
+    const autoCompactThreshold = AUTO_COMPACT_CONFIG.getThreshold(model);
+    const autoCompactPercentage = autoCompactThreshold * 100;
+    const percentageUntilCompact = Math.max(0, autoCompactPercentage - usagePercentage);
+    const tokensUntilCompact = Math.floor(contextWindow * (percentageUntilCompact / 100));
+    
     // 警告レベルの判定
     let warningLevel = 'normal';
     if (usagePercentage >= 95) {
@@ -97,7 +104,17 @@ export class ContextTracker {
       startTime: sessionData.startTime,
       lastUpdate: new Date(),
       latestPrompt: sessionData.latestPrompt,
-      latestPromptTime: sessionData.latestPromptTime
+      latestPromptTime: sessionData.latestPromptTime,
+      // AutoCompact情報を追加
+      autoCompact: {
+        enabled: true,
+        threshold: autoCompactThreshold,
+        thresholdPercentage: autoCompactPercentage,
+        remainingPercentage: percentageUntilCompact,
+        remainingTokens: tokensUntilCompact,
+        warningLevel: AUTO_COMPACT_CONFIG.getWarningLevel(percentageUntilCompact),
+        willCompactSoon: percentageUntilCompact < 5
+      }
     };
     
     // 最新の使用量情報を追加
@@ -106,8 +123,8 @@ export class ContextTracker {
         input: sessionData.latestUsage.input,
         output: sessionData.latestUsage.output,
         cache: sessionData.latestUsage.cache,
-        total: sessionData.latestUsage.input + sessionData.latestUsage.output + sessionData.latestUsage.cache,
-        percentage: ((sessionData.latestUsage.input + sessionData.latestUsage.output + sessionData.latestUsage.cache) / contextWindow) * 100
+        total: sessionData.latestUsage.input + sessionData.latestUsage.output,
+        percentage: ((sessionData.latestUsage.input + sessionData.latestUsage.output) / contextWindow) * 100
       };
     }
     

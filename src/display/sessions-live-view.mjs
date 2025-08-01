@@ -171,6 +171,7 @@ export class SessionsLiveView {
       [
         'Session',
         'Usage',
+        'Compact',
         'Model(latest)',
         'Turns',
         'Cost',
@@ -184,6 +185,7 @@ export class SessionsLiveView {
       const row = [
         session.sessionId.substring(0, 8),
         this.formatUsage(session.usagePercentage),
+        this.formatAutoCompact(session.autoCompact),
         session.modelName || 'Unknown',
         session.turns.toString(),
         this.formatCost(session.totalCost || 0),
@@ -209,11 +211,11 @@ export class SessionsLiveView {
 
   formatUsage(percentage) {
     // percentageがundefinedまたはnullの場合のデフォルト値
-    const safePercentage = percentage ?? 0;
+    const safePercentage = Math.max(0, Math.min(100, percentage ?? 0));
     
     const width = 10;
-    const filled = Math.round((safePercentage / 100) * width);
-    const empty = width - filled;
+    const filled = Math.max(0, Math.min(width, Math.round((safePercentage / 100) * width)));
+    const empty = Math.max(0, width - filled);
     
     // 通常のsessionsコマンドと同じ形式でプログレスバーを作成
     const bar = '█'.repeat(filled) + '░'.repeat(empty);
@@ -239,6 +241,33 @@ export class SessionsLiveView {
   formatCost(cost) {
     const safeCost = cost ?? 0;
     return `$${safeCost.toFixed(2)}`;
+  }
+
+  formatAutoCompact(autoCompact) {
+    if (!autoCompact?.enabled) {
+      return 'N/A';
+    }
+
+    const { remainingPercentage, thresholdPercentage, warningLevel } = autoCompact;
+    
+    if (remainingPercentage <= 0) {
+      return 'ACTIVE!';
+    }
+    
+    // 残り容量を % で表示
+    const percentStr = remainingPercentage.toFixed(1) + '%';
+    
+    // 警告レベルに応じた表示
+    switch (warningLevel) {
+      case 'critical':
+        return `!until ${percentStr}`;
+      case 'warning':
+        return `⚠ until ${percentStr}`;
+      case 'notice':
+        return `until ${percentStr}`;
+      default:
+        return `until ${percentStr}`;
+    }
   }
 
   truncatePrompt(prompt, maxLength) {

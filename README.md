@@ -7,6 +7,7 @@
 - 🔍 **リアルタイム監視**: Claude Codeの実行中にコンテキスト使用量をライブで追跡
 - 📊 **セッション別管理**: 各セッションのトークン使用量、コスト、残量を個別に表示
 - ⚠️ **警告機能**: コンテキスト使用量が80%、90%、95%に達すると警告
+- 🤖 **Auto-Compact追跡**: Claude CodeのAuto-Compact発動（65%）までの残量を表示
 - 💰 **コスト計算**: モデル別の料金でリアルタイムにコストを計算
 - 🎯 **非侵入的**: Claude Code本体に影響を与えず、JSONLログを読み取るだけ
 
@@ -25,7 +26,13 @@ npx cccontext monitor --live
 ### グローバルインストール
 
 ```bash
+# pnpmを使用
+pnpm add -g cccontext
+
+# npmを使用する場合
 npm install -g cccontext
+
+# 実行
 cccontext sessions
 ```
 
@@ -34,8 +41,14 @@ cccontext sessions
 ```bash
 git clone https://github.com/yourusername/cccontext.git
 cd cccontext
+
+# pnpmを使用（推奨）
+pnpm install
+pnpm link --global
+
+# npmを使用する場合
 npm install
-npm link  # グローバルにリンク
+npm link
 ```
 
 ## 使用方法
@@ -109,6 +122,7 @@ Claude Codeのコンテキスト使用量を監視します。
 │ ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░ 30% (60k/200k)│
 │                                                       │
 │ Remaining: 140k tokens (70.0%)                        │
+│ Auto-compact: at 65% (until 35.0%)                    │
 │                                                       │
 └───────────────────────────────────────────────────────┘
 
@@ -134,6 +148,7 @@ Claude Codeのコンテキスト使用量を監視します。
 
 ### セッション一覧
 
+通常表示：
 ```
 Active Sessions (Last 24h)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -144,10 +159,52 @@ Active Sessions (Last 24h)
 Total sessions: 3
 ```
 
+ライブビューモード（`--live`）では、Compact列も表示されます：
+```
+┌ Active Sessions ──────────────────────────────────────┐
+│ Session   Usage         Compact  Model     Turns Cost │
+│ 4ffe7e4f  [███░░░░░░░] 30.0%   until 35.0%    Opus 4   15  $0.45 │
+│ 7963885d  [█████░░░░░] 50.0%   ⚠ until 15.0%    Opus 4   75  $2.25 │
+│ fb512f58  [████████░░] 80.0%   !until 5.0%   Opus 4  146  $4.38 │
+└───────────────────────────────────────────────────────┘
+```
+
+Auto-Compact表示：
+- `until 35.0%`: 通常 - Auto-Compact発動まで35%の余裕
+- `⚠ until 15.0%`: 警告 - Auto-Compact発動まで15%
+- `!until 5.0%`: 危険 - まもなくAuto-Compact発動
+- `ACTIVE`: Auto-Compact発動中
+
+## Auto-Compact監視について
+
+Claude CodeはコンテキストWindow使用量が65%に達すると自動的にAuto-Compactを実行し、会話を圧縮します。CCContextは以下のように警告を表示します：
+
+### 警告レベル
+- **通常** (グレー): Auto-Compactまで20%以上の余裕
+- **注意** (青): Auto-Compactまで10-20%
+- **警告** (黄): Auto-Compactまで5-10%
+- **危険** (赤): Auto-Compactまで5%未満
+- **発動中** (赤・強調): Auto-Compactが発動
+
+### 表示例
+```
+# 余裕がある場合
+Auto-compact: at 65% (until 35.0%)
+
+# 警告レベル
+Auto-compact: at 65% (⚠until 8.5%)
+
+# 危険レベル
+Auto-compact: at 65% (!until 2.5%)
+
+# 発動中
+AUTO-COMPACT ACTIVE
+```
+
 ## 仕組み
 
 1. Claude Codeは `~/.claude/projects/` にJSONL形式でセッションログを保存します
-2. Gavrriはこれらのファイルを監視し、新しいメッセージが追加されるとリアルタイムで解析します
+2. CCContextはこれらのファイルを監視し、新しいメッセージが追加されるとリアルタイムで解析します
 3. トークン使用量、コスト、コンテキスト使用率を計算して表示します
 4. Claude Code本体には一切触れず、完全に独立して動作します
 

@@ -186,8 +186,8 @@ describe('ContextTracker', () => {
     expect(result.latestTurn.input).toBe(1000);
     expect(result.latestTurn.output).toBe(2000);
     expect(result.latestTurn.cache).toBe(500);
-    expect(result.latestTurn.total).toBe(3500);  // 1000 + 2000 + 500
-    expect(result.latestTurn.percentage).toBeCloseTo(1.75, 5);  // 3500 / 200000 * 100
+    expect(result.latestTurn.total).toBe(3000);  // 1000 + 2000 (cache not included)
+    expect(result.latestTurn.percentage).toBeCloseTo(1.5, 5);  // 3000 / 200000 * 100
   });
 
   it('should format context info correctly', () => {

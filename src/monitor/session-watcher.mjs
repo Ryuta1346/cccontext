@@ -211,7 +211,7 @@ export class SessionWatcher extends EventEmitter {
   async handleFileChange(sessionId, filePath) {
     try {
       const stats = await fs.promises.stat(filePath);
-      const lastPosition = this.filePositions.get(sessionId) || 0;
+      const lastPosition = Math.max(0, this.filePositions.get(sessionId) || 0);
       const lastMtime = this.fileMtimes?.get(sessionId) || 0;
       
       // ファイルサイズが減少した場合、または大幅に変化した場合
@@ -239,7 +239,7 @@ export class SessionWatcher extends EventEmitter {
       } else if (stats.size > lastPosition) {
         // 新しいデータを読み込む（増分読み込み）
         const stream = fs.createReadStream(filePath, {
-          start: lastPosition,
+          start: Math.max(0, lastPosition),
           encoding: 'utf-8'
         });
 
@@ -299,7 +299,7 @@ export class SessionWatcher extends EventEmitter {
       const outputTokens = usage.output_tokens || 0;
       const cacheTokens = usage.cache_read_input_tokens || 0;
       
-      sessionData.totalTokens += inputTokens + outputTokens + cacheTokens;
+      sessionData.totalTokens += inputTokens + outputTokens;
       
       // ターン数のカウント（assistantメッセージでカウント）
       if (data.message?.role === 'assistant') {
