@@ -171,7 +171,7 @@ export class SessionsLiveView {
       [
         'Session',
         'Usage',
-        'Compact',
+        'Left until auto-compact',
         'Model(latest)',
         'Turns',
         'Cost',
@@ -260,13 +260,13 @@ export class SessionsLiveView {
     // 警告レベルに応じた表示
     switch (warningLevel) {
       case 'critical':
-        return `!until ${percentStr}`;
+        return `!${percentStr}`;
       case 'warning':
-        return `⚠ until ${percentStr}`;
+        return `⚠ ${percentStr}`;
       case 'notice':
-        return `until ${percentStr}`;
+        return percentStr;
       default:
-        return `until ${percentStr}`;
+        return percentStr;
     }
   }
 

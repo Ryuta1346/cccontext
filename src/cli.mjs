@@ -359,7 +359,7 @@ class CCContextCLI {
     try {
       // 全セッションファイルを取得
       const files = await this.watcher.getAllJsonlFiles();
-      const limit = parseInt(options.limit || 20);
+      const limit = parseInt(options.limit);
       
       // 最新のファイルから順に処理
       const sortedFiles = await this.getSortedFilesByMtime(files);
@@ -683,10 +683,10 @@ program.on('command:*', function (operands) {
 program
   .option('--list', 'List all sessions for selection')
   .option('-s, --session <number>', 'Monitor specific session by number from list')
-  .option('-l, --limit <number>', 'Number of sessions to show with --list (default: 20)')
+  .option('--list-limit <number>', 'Number of sessions to show with --list (default: 20)')
   .action((options) => {
     if (options.list) {
-      cli.listSessionsForSelection({ limit: options.limit });
+      cli.listSessionsForSelection({ limit: options.listLimit || 20 });
     } else {
       cli.monitorLive({ live: true, session: options.session });
     }
