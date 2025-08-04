@@ -97,6 +97,12 @@ class CCContextCLI {
   }
 
   async showSessions(options) {
+    console.log(chalk.cyan('🔍 Loading Claude Code Sessions...'));
+    
+    // ライブビューの初期化
+    this.sessionsView = new SessionsLiveView();
+    this.sessionsView.init();
+
     try {
       const files = await this.watcher.getAllJsonlFiles();
       const sessions = [];
@@ -125,9 +131,13 @@ class CCContextCLI {
             lastModified: stats.mtime,
             size: stats.size,
             model: sessionData.model,
+            modelName: contextInfo.modelName,
             turns: sessionData.turns,
             totalTokens: sessionData.totalTokens,
-            latestPrompt: this.formatPromptForList(sessionData.latestPrompt)
+            totalCost: contextInfo.totalCost,
+            usagePercentage: contextInfo.usagePercentage,
+            latestPrompt: sessionData.latestPrompt,
+            autoCompact: contextInfo.autoCompact
           });
         }
       }
@@ -139,36 +149,29 @@ class CCContextCLI {
       const limit = options.limit || 10;
       const displaySessions = sessions.slice(0, limit);
 
-      console.log(chalk.cyan('\nActive Sessions (Last 24h)'));
-      console.log(chalk.gray('━'.repeat(80)));
-
-      displaySessions.forEach((session, index) => {
-        const age = this.formatAge(session.lastModified);
-        const contextWindow = this.tracker.getContextWindow(session.model);
-        const usage = (session.totalTokens / contextWindow) * 100;
-        const modelName = this.calculator.getModelName(session.model);
-        
-        console.log(
-          `${chalk.yellow((index + 1).toString().padStart(2))}. ` +
-          `${chalk.white(session.sessionId.substring(0, 8))} ` +
-          `[${this.createMiniProgressBar(usage)}] ` +
-          `${chalk.cyan(usage.toFixed(1) + '%')} ` +
-          `${chalk.gray('|')} ${chalk.blue(modelName)} ` +
-          `${chalk.gray('|')} ${chalk.green(session.turns + ' turns')} ` +
-          `${chalk.gray('|')} ${chalk.magenta(age)}`
-        );
-        
-        // プロンプトの表示（インデント付き）
-        if (session.latestPrompt) {
-          console.log(`    ${chalk.gray('└→')} ${chalk.dim(session.latestPrompt)}`);
-        }
+      // SessionsLiveViewで表示
+      this.sessionsView.updateSessions(displaySessions);
+      
+      // プロセス終了時のクリーンアップ
+      process.on('SIGINT', () => {
+        this.sessionsView.destroy();
+        process.exit(0);
+      });
+      process.on('SIGTERM', () => {
+        this.sessionsView.destroy();
+        process.exit(0);
       });
 
-      console.log(chalk.gray('━'.repeat(80)));
-      console.log(chalk.gray(`Total sessions: ${sessions.length}`));
+      // キーイベントの待機
+      await new Promise(() => {
+        // プロミスは解決されない（ユーザーがqまたはCtrl+Cで終了するまで待機）
+      });
 
     } catch (error) {
       console.error(chalk.red(`Error: ${error.message}`));
+      if (this.sessionsView) {
+        this.sessionsView.destroy();
+      }
       process.exit(1);
     }
   }
@@ -221,6 +224,47 @@ class CCContextCLI {
     }
     
     return result;
+  }
+
+  formatUsage(percentage) {
+    // percentageがundefinedまたはnullの場合のデフォルト値
+    const safePercentage = Math.max(0, Math.min(100, percentage ?? 0));
+    
+    const bar = this.createMiniProgressBar(safePercentage);
+    const percentStr = safePercentage.toFixed(1) + '%';
+    return `[${bar}] ${chalk.cyan(percentStr.padStart(5))}`;
+  }
+
+  formatAutoCompact(autoCompact) {
+    if (!autoCompact?.enabled) {
+      return chalk.gray('N/A');
+    }
+
+    const { remainingPercentage, thresholdPercentage, warningLevel } = autoCompact;
+    
+    if (remainingPercentage <= 0) {
+      return chalk.red('ACTIVE!');
+    }
+    
+    // 残り容量を % で表示
+    const percentStr = remainingPercentage.toFixed(1) + '%';
+    
+    // 警告レベルに応じた表示
+    switch (warningLevel) {
+      case 'critical':
+        return chalk.red(`!${percentStr}`);
+      case 'warning':
+        return chalk.yellow(`⚠ ${percentStr}`);
+      case 'notice':
+        return chalk.cyan(percentStr);
+      default:
+        return chalk.gray(percentStr);
+    }
+  }
+
+  formatCost(cost) {
+    const safeCost = cost ?? 0;
+    return `$${safeCost.toFixed(2)}`;
   }
 
   async resolveSessionIdentifier(identifier) {

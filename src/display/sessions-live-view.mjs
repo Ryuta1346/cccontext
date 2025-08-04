@@ -169,6 +169,7 @@ export class SessionsLiveView {
     const tableData = [
       // ヘッダー行
       [
+        'No.',
         'Session',
         'Usage',
         'Left until auto-compact',
@@ -183,6 +184,7 @@ export class SessionsLiveView {
     // セッションデータの追加
     sessionsData.forEach((session, index) => {
       const row = [
+        (index + 1).toString(),  // 番号を追加
         session.sessionId.substring(0, 8),
         this.formatUsage(session.usagePercentage),
         this.formatAutoCompact(session.autoCompact),
