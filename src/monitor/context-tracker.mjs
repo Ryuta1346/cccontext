@@ -56,14 +56,23 @@ export class ContextTracker {
     const stats = this.calculator.calculateSessionTotals(validMessages, model);
     const contextWindow = this.getContextWindow(model);
     
+    // sessionDataのtotalTokensがある場合はそれを使用（累積値）
+    // ない場合はstatsから計算（初回など）
+    const totalTokens = sessionData.totalTokens || stats.totalTokens;
+    const totalCacheTokens = sessionData.totalCacheTokens !== undefined ? sessionData.totalCacheTokens : stats.totalCacheTokens;
+    
+    // Include the latest cache tokens in context calculation
+    // Cache tokens represent the current cache state (not accumulated)
+    const actualTotalTokens = totalTokens + totalCacheTokens;
+    
     // コンテキスト使用率を計算
-    const usagePercentage = (stats.totalTokens / contextWindow) * 100;
-    const remainingTokens = contextWindow - stats.totalTokens;
+    const usagePercentage = (actualTotalTokens / contextWindow) * 100;
+    const remainingTokens = contextWindow - actualTotalTokens;
     const remainingPercentage = (remainingTokens / contextWindow) * 100;
     
     // 推定残りターン数
     const estimatedRemainingTurns = this.calculator.estimateRemainingTurns(
-      stats.totalTokens,
+      actualTotalTokens,
       contextWindow,
       stats.averageTokensPerTurn
     );
@@ -71,8 +80,15 @@ export class ContextTracker {
     // AutoCompact情報の計算
     const autoCompactThreshold = AUTO_COMPACT_CONFIG.getThreshold(model);
     const autoCompactPercentage = autoCompactThreshold * 100;
-    const percentageUntilCompact = Math.max(0, autoCompactPercentage - usagePercentage);
-    const tokensUntilCompact = Math.floor(contextWindow * (percentageUntilCompact / 100));
+    
+    // Calculate tokens at which auto-compact triggers
+    const autoCompactTokenThreshold = contextWindow * autoCompactThreshold;
+    
+    // Calculate remaining tokens until auto-compact
+    const tokensUntilCompact = Math.max(0, autoCompactTokenThreshold - actualTotalTokens);
+    
+    // Calculate percentage points remaining until auto-compact triggers
+    const percentageUntilCompact = autoCompactPercentage - usagePercentage;
     
     // 警告レベルの判定
     let warningLevel = 'normal';
@@ -89,7 +105,7 @@ export class ContextTracker {
       model,
       modelName: this.calculator.getModelName(model),
       contextWindow,
-      totalTokens: stats.totalTokens,
+      totalTokens: actualTotalTokens,
       inputTokens: stats.totalInputTokens,
       outputTokens: stats.totalOutputTokens,
       cacheTokens: stats.totalCacheTokens,

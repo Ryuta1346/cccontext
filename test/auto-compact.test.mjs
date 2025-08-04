@@ -51,11 +51,11 @@ describe('AutoCompact in ContextTracker', () => {
     expect(info.autoCompact.threshold).toBe(0.95);
     expect(info.autoCompact.thresholdPercentage).toBe(95);
     
-    // With 1500 tokens used (1000 input + 500 output, cache not counted) out of 200k
-    // Usage is 0.75%, so remaining until 95% is 94.25%
-    expect(info.usagePercentage).toBeCloseTo(0.75, 2);
-    expect(info.autoCompact.remainingPercentage).toBeCloseTo(94.25, 1);
-    expect(info.autoCompact.remainingTokens).toBeGreaterThanOrEqual(188499); // ~200k * 0.9425 (allowing for rounding)
+    // With 1600 tokens used (1000 input + 500 output + 100 cache) out of 200k
+    // Usage is 0.8%, so remaining until 95% is 94.2%
+    expect(info.usagePercentage).toBeCloseTo(0.8, 2);
+    expect(info.autoCompact.remainingPercentage).toBeCloseTo(94.2, 1);
+    expect(info.autoCompact.remainingTokens).toBeGreaterThanOrEqual(188400); // 200k * 0.95 - 1600
     expect(info.autoCompact.warningLevel).toBe('normal');
     expect(info.autoCompact.willCompactSoon).toBe(false);
   });
@@ -80,11 +80,11 @@ describe('AutoCompact in ContextTracker', () => {
 
     const info = tracker.updateSession(sessionData);
     
-    // With 125k tokens used out of 200k, usage is 62.5%
-    // So remaining until 95% is 32.5%
-    expect(info.usagePercentage).toBe(62.5);
-    expect(info.autoCompact.remainingPercentage).toBeCloseTo(32.5, 1);
-    expect(info.autoCompact.remainingTokens).toBe(65000); // 200k * 0.325
+    // With 126k tokens used (125k + 1k cache) out of 200k, usage is 63%
+    // So remaining until 95% is 32%
+    expect(info.usagePercentage).toBe(63);
+    expect(info.autoCompact.remainingPercentage).toBeCloseTo(32, 1);
+    expect(info.autoCompact.remainingTokens).toBe(64000); // 200k * 0.95 - 126k
     expect(info.autoCompact.warningLevel).toBe('normal');
     expect(info.autoCompact.willCompactSoon).toBe(false);
   });
@@ -109,12 +109,12 @@ describe('AutoCompact in ContextTracker', () => {
 
     const info = tracker.updateSession(sessionData);
     
-    // With 150k tokens used out of 200k, usage is 75%
-    // Still under 95% threshold, remaining is 20%
-    expect(info.usagePercentage).toBe(75);
-    expect(info.autoCompact.remainingPercentage).toBe(20);
-    expect(info.autoCompact.remainingTokens).toBe(40000); // 200k * 0.20
-    expect(info.autoCompact.warningLevel).toBe('normal');
+    // With 151k tokens used (150k + 1k cache) out of 200k, usage is 75.5%
+    // Still under 95% threshold, remaining is 19.5%
+    expect(info.usagePercentage).toBe(75.5);
+    expect(info.autoCompact.remainingPercentage).toBe(19.5);
+    expect(info.autoCompact.remainingTokens).toBe(39000); // 200k * 0.95 - 151k
+    expect(info.autoCompact.warningLevel).toBe('notice'); // 19.5% is < 20%, so 'notice'
     expect(info.autoCompact.willCompactSoon).toBe(false);
   });
 
@@ -138,12 +138,12 @@ describe('AutoCompact in ContextTracker', () => {
 
     const info = tracker.updateSession(sessionData);
     
-    // With 190k tokens used out of 200k, usage is 95%
-    // At the 95% threshold
-    expect(info.usagePercentage).toBe(95);
-    expect(info.autoCompact.remainingPercentage).toBe(0);
+    // With 191k tokens used (190k + 1k cache) out of 200k, usage is 95.5%
+    // Above the 95% threshold
+    expect(info.usagePercentage).toBe(95.5);
+    expect(info.autoCompact.remainingPercentage).toBeCloseTo(-0.5, 1); // 95% - 95.5% = -0.5%
     expect(info.autoCompact.remainingTokens).toBe(0);
-    expect(info.autoCompact.warningLevel).toBe('active');
+    expect(info.autoCompact.warningLevel).toBe('active'); // -0.5% is <= 0, so 'active'
     expect(info.autoCompact.willCompactSoon).toBe(true);
   });
 
@@ -167,12 +167,12 @@ describe('AutoCompact in ContextTracker', () => {
 
     const info = tracker.updateSession(sessionData);
     
-    // With 198k tokens used out of 200k, usage is 99%
+    // With 199k tokens used (198k + 1k cache) out of 200k, usage is 99.5%
     // Above the 95% threshold
-    expect(info.usagePercentage).toBe(99);
-    expect(info.autoCompact.remainingPercentage).toBe(0);
+    expect(info.usagePercentage).toBe(99.5);
+    expect(info.autoCompact.remainingPercentage).toBeCloseTo(-4.5, 1); // 95% - 99.5% = -4.5%
     expect(info.autoCompact.remainingTokens).toBe(0);
-    expect(info.autoCompact.warningLevel).toBe('active');
+    expect(info.autoCompact.warningLevel).toBe('active'); // -4.5% is <= 0, so 'active'
     expect(info.autoCompact.willCompactSoon).toBe(true);
   });
 });

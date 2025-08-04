@@ -127,7 +127,10 @@ export class SessionCache {
             const usage = data.message.usage;
             totalInputTokens += usage.input_tokens || 0;
             totalOutputTokens += usage.output_tokens || 0;
-            totalCacheTokens += usage.cache_read_input_tokens || 0;
+            // Cache tokens should not be accumulated - use the latest value only
+            if (usage.cache_read_input_tokens > 0) {
+              totalCacheTokens = usage.cache_read_input_tokens;
+            }
             
             if (data.message.role === 'assistant') {
               turns++;
@@ -151,6 +154,13 @@ export class SessionCache {
       }
 
       totalTokens = totalInputTokens + totalOutputTokens;
+
+      // キャッシュトークンの異常値チェック
+      // キャッシュトークンが総トークン数を超える場合は異常
+      if (totalCacheTokens > totalTokens) {
+        this.log(`Warning: Cache tokens (${totalCacheTokens}) exceed total tokens (${totalTokens}) for session ${sessionId}. Resetting to 0.`);
+        totalCacheTokens = 0;
+      }
 
       const sessionData = {
         sessionId,

@@ -77,6 +77,7 @@ export class UsageCalculator {
       inputTokens,
       outputTokens,
       cacheTokens,
+      // Exclude cache tokens from totalTokens (they are tracked separately)
       totalTokens: inputTokens + outputTokens
     };
   }
@@ -94,7 +95,10 @@ export class UsageCalculator {
         
         totalInputTokens += cost.inputTokens;
         totalOutputTokens += cost.outputTokens;
-        totalCacheTokens += cost.cacheTokens;
+        // Cache tokens should not be accumulated - use the latest value only
+        if (cost.cacheTokens > 0) {
+          totalCacheTokens = cost.cacheTokens;
+        }
         totalCost += cost.totalCost;
         
         if (message.message?.role === 'assistant') {
@@ -107,9 +111,11 @@ export class UsageCalculator {
       totalInputTokens,
       totalOutputTokens,
       totalCacheTokens,
+      // Exclude cache tokens from totalTokens (they are tracked separately)
       totalTokens: totalInputTokens + totalOutputTokens,
       totalCost,
       turns,
+      // Average excludes cache tokens (they are tracked separately)
       averageTokensPerTurn: turns > 0 ? Math.round((totalInputTokens + totalOutputTokens) / turns) : 0
     };
   }
@@ -135,6 +141,7 @@ export class UsageCalculator {
   estimateRemainingTurns(currentTokens, contextWindow, averageTokensPerTurn) {
     if (averageTokensPerTurn === 0) return Infinity;
     
+    // currentTokens should include the latest cache tokens (not accumulated)
     const remainingTokens = contextWindow - currentTokens;
     return Math.floor(remainingTokens / averageTokensPerTurn);
   }

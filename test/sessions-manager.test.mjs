@@ -59,7 +59,10 @@ vi.mock('../src/monitor/session-cache.mjs', () => {
                   const usage = data.message.usage;
                   totalInputTokens += usage.input_tokens || 0;
                   totalOutputTokens += usage.output_tokens || 0;
-                  totalCacheTokens += usage.cache_read_input_tokens || 0;
+                  // Cache tokens should not be accumulated - use the latest value only
+                  if (usage.cache_read_input_tokens > 0) {
+                    totalCacheTokens = usage.cache_read_input_tokens;
+                  }
                   totalTokens = totalInputTokens + totalOutputTokens;
                   
                   if (data.message.role === 'assistant') {

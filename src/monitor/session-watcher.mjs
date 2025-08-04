@@ -175,6 +175,7 @@ export class SessionWatcher extends EventEmitter {
           sessionId,
           messages: [],
           totalTokens: 0,
+          totalCacheTokens: 0,
           totalCost: 0,
           turns: 0,
           model: null,
@@ -186,6 +187,7 @@ export class SessionWatcher extends EventEmitter {
       if (isCompactOperation && this.sessions.has(sessionId)) {
         sessionData.messages = [];
         sessionData.totalTokens = 0;
+        sessionData.totalCacheTokens = 0;
         sessionData.totalCost = 0;
         sessionData.turns = 0;
         sessionData.model = null;
@@ -299,7 +301,13 @@ export class SessionWatcher extends EventEmitter {
       const outputTokens = usage.output_tokens || 0;
       const cacheTokens = usage.cache_read_input_tokens || 0;
       
+      // Do NOT include cache tokens in session watcher accumulation
+      // Claude Code CLI excludes cache tokens from context calculation
       sessionData.totalTokens += inputTokens + outputTokens;
+      
+      // Cache tokens should not be accumulated - use the latest value only
+      // Each message reports the current cache state, not additional cache
+      sessionData.totalCacheTokens = cacheTokens;
       
       // ターン数のカウント（assistantメッセージでカウント）
       if (data.message?.role === 'assistant') {

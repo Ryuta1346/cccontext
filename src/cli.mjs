@@ -349,6 +349,28 @@ class CCContextCLI {
     }
   }
 
+  async clearCache() {
+    try {
+      console.log(chalk.yellow('🗑️  Clearing session cache...'));
+      
+      // SessionsManagerからSessionCacheインスタンスを取得
+      const { SessionsManager } = await import('./monitor/sessions-manager.mjs');
+      const manager = new SessionsManager();
+      
+      if (manager.cache) {
+        manager.cache.clearAll();
+        console.log(chalk.green('✅ Session cache cleared successfully'));
+      } else {
+        console.log(chalk.yellow('⚠️  No session cache found'));
+      }
+      
+      process.exit(0);
+    } catch (error) {
+      console.error(chalk.red(`Error clearing cache: ${error.message}`));
+      process.exit(1);
+    }
+  }
+
   async showSessionsLive(options) {
     console.log(chalk.cyan('🔍 Starting Claude Code Sessions Monitor...'));
     
@@ -664,8 +686,11 @@ program
   .option('-l, --limit <number>', 'Number of sessions to show', '10')
   .option('--live', 'Live monitoring mode')
   .option('--debug', 'Enable debug mode for detailed logging')
+  .option('--clear-cache', 'Clear session cache and exit')
   .action((options) => {
-    if (options.live) {
+    if (options.clearCache) {
+      cli.clearCache();
+    } else if (options.live) {
       // 一時的に元の実装を使用
       cli.showSessionsLive(options);
     } else {
