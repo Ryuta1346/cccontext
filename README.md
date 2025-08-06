@@ -1,6 +1,6 @@
 # CCContext - Claude Code Context Monitor
 
-リアルタイムでClaude Codeのコンテキスト使用量を監視するツールです。ccusageと同様に、Claude Codeとは独立して動作し、JSONLログファイルを監視してセッションごとのトークン使用量とコストを表示します。
+リアルタイムでClaude Codeのコンテキスト使用量を監視するツールです。Claude Codeとは独立して動作し、JSONLログファイルを監視してセッションごとのトークン使用量とコストを表示します。
 
 ## 特徴
 
@@ -36,21 +36,6 @@ npm install -g cccontext
 cccontext sessions
 ```
 
-### ローカル開発
-
-```bash
-git clone https://github.com/yourusername/cccontext.git
-cd cccontext
-
-# pnpmを使用（推奨）
-pnpm install
-pnpm link --global
-
-# npmを使用する場合
-npm install
-npm link
-```
-
 ## 使用方法
 
 ### リアルタイム監視
@@ -58,16 +43,19 @@ npm link
 最新のアクティブセッションを自動検出して監視：
 
 ```bash
-cccontext
-# または
-cccontext monitor
-cccontext monitor --live
+npx cccontext
 ```
 
-特定のセッションを監視：
+### セッション選択
+
+セッション一覧から番号で選択して監視：
 
 ```bash
-cccontext monitor --session <session-id>
+# セッション一覧を表示して選択
+npx cccontext --list
+
+# 番号で直接指定（例: 2番目のセッション）
+npx cccontext -s 2
 ```
 
 ### セッション一覧
@@ -75,9 +63,19 @@ cccontext monitor --session <session-id>
 最近のセッションを表示：
 
 ```bash
-cccontext sessions
-cccontext sessions --limit 20  # 20件表示
-cccontext sessions --live      # ライブビューモード
+npx cccontext sessions
+npx cccontext sessions --limit 20  # 20件表示
+npx cccontext sessions --live      # ライブビューモード
+```
+
+### その他のオプション
+
+```bash
+# セッションキャッシュをクリア
+npx cccontext sessions --clear-cache
+
+# デバッグモード
+npx cccontext sessions --debug
 ```
 
 ## コマンドラインオプション
@@ -85,128 +83,57 @@ cccontext sessions --live      # ライブビューモード
 ### `cccontext` （デフォルト）
 最新のアクティブセッションをリアルタイム監視します。
 
-### `cccontext monitor`
-Claude Codeのコンテキスト使用量を監視します。
-
 | オプション | 説明 | デフォルト |
 |------------|------|------------|
-| `-l, --live` | ライブ監視モード | true |
-| `-s, --session <id>` | 特定のセッションIDを監視 | - |
+| `--list` | セッション一覧を表示して選択 | false |
+| `-s <number>` | セッション番号で直接指定 | - |
+| `--list -limit <number>` | --list使用時の表示件数 | 20 |
 
 ### `cccontext sessions`
 最近のClaude Codeセッションを一覧表示します。
 
 | オプション | 説明 | デフォルト |
 |------------|------|------------|
-| `-l, --limit <number>` | 表示するセッション数 | 10 |
+| `--limit <number>` | 表示するセッション数 | 10 |
 | `--live` | ライブビューモード（自動更新） | false |
-
-## 表示例
-
-### ライブモニター
-
-```
-╭─ Claude Code Context Monitor ─────────────────────────╮
-│ Real-time context usage tracking for Claude Code      │
-╰───────────────────────────────────────────────────────╯
-
-┌ Session Info ─────────────────────────────────────────┐
-│                                                       │
-│ Session: 4ffe7e4f-5d3e-4b...                        │
-│ Model: Claude Opus 4                                  │
-│ Started: 15m ago                                      │
-└───────────────────────────────────────────────────────┘
-
-┌ Context Usage ────────────────────────────────────────┐
-│                                                       │
-│ ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░ 30% (60k/200k)│
-│                                                       │
-│ Remaining: 140k tokens (70.0%)                        │
-│ Auto-compact: at 65% (until 35.0%)                    │
-│                                                       │
-└───────────────────────────────────────────────────────┘
-
-┌ Latest Turn ──────────────────────────────────────────┐
-│                                                       │
-│ Input:  2.5k tokens                                   │
-│ Output: 1.8k tokens                                   │
-│ Cache:  5.2k tokens (read)                           │
-│ Total:  4.3k tokens (2.15% of window)                │
-└───────────────────────────────────────────────────────┘
-
-┌ Session Totals ───────────────────────────────────────┐
-│                                                       │
-│ Turns: 15                                             │
-│ Total Tokens: 60k                                     │
-│ Cost: $1.23                                          │
-│ Avg/Turn: 4k                                         │
-│ Est. Remaining Turns: 35                              │
-└───────────────────────────────────────────────────────┘
-
-[Live] Watching for updates... (q to exit, r to refresh)
-```
-
-### セッション一覧
-
-通常表示：
-```
-Active Sessions (Last 24h)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 1. 4ffe7e4f [███░░░░░░░] 30.0% | Claude Opus 4 | 15 turns | 15m ago
- 2. 7963885d [█████░░░░░] 50.0% | Claude Opus 4 | 75 turns | 2h ago
- 3. fb512f58 [████████░░] 80.0% | Claude Opus 4 | 146 turns | 5h ago
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Total sessions: 3
-```
-
-ライブビューモード（`--live`）では、Compact列も表示されます：
-```
-┌ Active Sessions ──────────────────────────────────────┐
-│ Session   Usage         Compact  Model     Turns Cost │
-│ 4ffe7e4f  [███░░░░░░░] 30.0%   until 35.0%    Opus 4   15  $0.45 │
-│ 7963885d  [█████░░░░░] 50.0%   ⚠ until 15.0%    Opus 4   75  $2.25 │
-│ fb512f58  [████████░░] 80.0%   !until 5.0%   Opus 4  146  $4.38 │
-└───────────────────────────────────────────────────────┘
-```
+| `--clear-cache` | セッションキャッシュをクリア | false |
+| `--debug` | デバッグモード | false |
 
 Auto-Compact表示：
-- `until 35.0%`: 通常 - Auto-Compact発動まで35%の余裕
-- `⚠ until 15.0%`: 警告 - Auto-Compact発動まで15%
+- `until 65.0%`: 通常 - Auto-Compact発動まで65%の余裕
+- `until 45.0%`: 通常 - Auto-Compact発動まで45%の余裕
+- `⚠until 15.0%`: 警告 - Auto-Compact発動まで15%
 - `!until 5.0%`: 危険 - まもなくAuto-Compact発動
-- `ACTIVE`: Auto-Compact発動中
+- `ACTIVE`: Auto-Compact発動中（95%到達）
 
 ## Auto-Compact監視について
 
-Claude CodeはコンテキストWindow使用量が65%に達すると自動的にAuto-Compactを実行し、会話を圧縮します。CCContextは以下のように警告を表示します：
+Claude CodeはコンテキストWindow使用量が95%に達すると自動的にAuto-Compactを実行し、会話を圧縮します。CCContextは実際のClaude Codeの動作に合わせた計算方法で、正確なAuto-Compact発動タイミングを予測します。
+
+### 計算方法
+CCContextは、Claude Codeと同じように、総メッセージ数に基づいてコンテキスト使用量を計算します。これにより、実際のAuto-Compact発動タイミングを正確に予測できます。
 
 ### 警告レベル
-- **通常** (グレー): Auto-Compactまで20%以上の余裕
-- **注意** (青): Auto-Compactまで10-20%
-- **警告** (黄): Auto-Compactまで5-10%
+- **通常** (グレー): Auto-Compactまで30%以上の余裕
+- **注意** (青): Auto-Compactまで15-30%
+- **警告** (黄): Auto-Compactまで5-15%
 - **危険** (赤): Auto-Compactまで5%未満
-- **発動中** (赤・強調): Auto-Compactが発動
+- **発動中** (赤・強調): Auto-Compactが発動（95%到達）
 
 ### 表示例
 ```
 # 余裕がある場合
-Auto-compact: at 65% (until 35.0%)
+Auto-compact: at 95% (until 65.0%)
 
 # 警告レベル
-Auto-compact: at 65% (⚠until 8.5%)
+Auto-compact: at 95% (⚠until 8.5%)
 
 # 危険レベル
-Auto-compact: at 65% (!until 2.5%)
+Auto-compact: at 95% (!until 2.5%)
 
 # 発動中
 AUTO-COMPACT ACTIVE
 ```
-
-## 仕組み
-
-1. Claude Codeは `~/.claude/projects/` にJSONL形式でセッションログを保存します
-2. CCContextはこれらのファイルを監視し、新しいメッセージが追加されるとリアルタイムで解析します
-3. トークン使用量、コスト、コンテキスト使用率を計算して表示します
-4. Claude Code本体には一切触れず、完全に独立して動作します
 
 ## 対応モデル
 
@@ -228,7 +155,6 @@ cccontext --version
 
 ```bash
 cccontext --help
-cccontext monitor --help
 cccontext sessions --help
 ```
 

@@ -707,7 +707,7 @@ const cli = new CCContextCLI();
 program
   .name('cccontext')
   .description('Real-time context usage monitor for Claude Code')
-  .version('0.1.0')
+  .version('1.0.0')
   .exitOverride()
   .configureOutput({
     writeOut: (str) => { process.stdout.write(str); },
