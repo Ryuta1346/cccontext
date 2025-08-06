@@ -162,7 +162,7 @@ describe('UsageCalculator', () => {
     // Output cost: 2000 / 1M * $15 = 0.03
     expect(result.outputCost.toFixed(5)).toBe('0.03000');
     expect(result.totalCost.toFixed(5)).toBe('0.03315');
-    expect(result.totalTokens).toBe(3000); // 1000 + 2000 (cache not included)
+    expect(result.totalTokens).toBe(3500); // 1000 + 2000 + 500 (cache included per claude-context-calculator)
   });
 
   it('should use default pricing for unknown models', () => {
@@ -196,7 +196,7 @@ describe('UsageCalculator', () => {
     expect(result.inputCost).toBe(0.003);
     expect(result.outputCost).toBe(0);
     expect(result.totalCost).toBe(0.003);
-    expect(result.totalTokens).toBe(0); // only input + output, cache not included
+    expect(result.totalTokens).toBe(10000); // cache included per claude-context-calculator
   });
 
   it('should calculate session totals correctly', () => {
@@ -247,9 +247,9 @@ describe('UsageCalculator', () => {
     expect(result.totalInputTokens).toBe(300); // 100 + 50 + 150 + 0
     expect(result.totalOutputTokens).toBe(500); // 0 + 200 + 0 + 300
     expect(result.totalCacheTokens).toBe(100);
-    expect(result.totalTokens).toBe(800); // 300 + 500 (cache not included)
+    expect(result.totalTokens).toBe(900); // 300 + 500 + 100 (cache included per claude-context-calculator)
     expect(result.turns).toBe(2); // 2 assistant messages
-    expect(result.averageTokensPerTurn).toBe(400); // 800 / 2
+    expect(result.averageTokensPerTurn).toBe(450); // 900 / 2
     
     // Cost: (300 + 100*0.1) / 1M * $3 + 500 / 1M * $15
     const expectedCost = 0.00093 + 0.0075;
@@ -429,7 +429,7 @@ describe('UsageCalculator', () => {
       expect(result.inputTokens).toBe(0.5);
       expect(result.outputTokens).toBe(1.7);
       expect(result.cacheTokens).toBe(2.3);
-      expect(result.totalTokens).toBeCloseTo(2.2, 5); // 0.5 + 1.7 (cache not included)
+      expect(result.totalTokens).toBeCloseTo(4.5, 5); // 0.5 + 1.7 + 2.3 (cache included per claude-context-calculator)
     });
 
     it('should handle Infinity in calculations', () => {
@@ -473,12 +473,12 @@ describe('UsageCalculator', () => {
       
       const result = calculator.calculateSessionTotals(messages, 'claude-3-5-sonnet-20241022');
       
-      // Total tokens should NOT include cache tokens in the sum
-      expect(result.totalTokens).toBe(3000); // 1000 + 2000 (cache not included)
+      // Total tokens SHOULD include cache tokens per claude-context-calculator
+      expect(result.totalTokens).toBe(8000); // 1000 + 2000 + 5000 (cache included)
       expect(result.totalInputTokens).toBe(1000);
       expect(result.totalOutputTokens).toBe(2000);
       expect(result.totalCacheTokens).toBe(5000);
-      expect(result.averageTokensPerTurn).toBe(3000); // Only input + output count
+      expect(result.averageTokensPerTurn).toBe(8000); // All tokens included per claude-context-calculator
     });
 
     it('should correctly calculate remaining turns with cache tokens', () => {
@@ -500,12 +500,12 @@ describe('UsageCalculator', () => {
       
       const stats = calculator.calculateSessionTotals(messages, 'claude-3-5-sonnet-20241022');
       
-      // With cache tokens excluded from total, average per turn is 30,000
-      expect(stats.averageTokensPerTurn).toBe(30000);
+      // With cache tokens included in total per claude-context-calculator
+      expect(stats.averageTokensPerTurn).toBe(80000); // 10k + 20k + 50k
       
       // Test remaining turns calculation
-      const remaining = calculator.estimateRemainingTurns(30000, 200000, stats.averageTokensPerTurn);
-      expect(remaining).toBe(5); // (200k - 30k) / 30k = 5.67 → 5
+      const remaining = calculator.estimateRemainingTurns(80000, 200000, stats.averageTokensPerTurn);
+      expect(remaining).toBe(1); // (200k - 80k) / 80k = 1.5 → 1
     });
   });
 });

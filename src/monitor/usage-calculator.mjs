@@ -62,10 +62,11 @@ export class UsageCalculator {
     // 数値に変換し、無効な値は0として扱う
     const inputTokens = Number(usage.input_tokens) || 0;
     const outputTokens = Number(usage.output_tokens) || 0;
-    const cacheTokens = Number(usage.cache_read_input_tokens) || 0;
+    const cacheReadTokens = Number(usage.cache_read_input_tokens) || 0;
+    const cacheCreationTokens = Number(usage.cache_creation_input_tokens) || 0;
     
     // キャッシュトークンは入力トークンの10%のコストとして計算
-    const effectiveInputTokens = inputTokens + (cacheTokens * 0.1);
+    const effectiveInputTokens = inputTokens + cacheCreationTokens + (cacheReadTokens * 0.1);
     
     const inputCost = (effectiveInputTokens / 1_000_000) * pricing.input;
     const outputCost = (outputTokens / 1_000_000) * pricing.output;
@@ -76,16 +77,20 @@ export class UsageCalculator {
       totalCost: inputCost + outputCost,
       inputTokens,
       outputTokens,
-      cacheTokens,
-      // Exclude cache tokens from totalTokens (they are tracked separately)
-      totalTokens: inputTokens + outputTokens
+      cacheTokens: cacheReadTokens,
+      cacheCreationTokens,
+      // Include cache creation tokens in totalTokens (they are part of input)
+      // Also include cache read tokens as per claude-context-calculator
+      // This matches ../research/tools/claude-context-calculator/src/calculator.js:84
+      totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens
     };
   }
 
   calculateSessionTotals(messages, model) {
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
-    let totalCacheTokens = 0;
+    let totalCacheReadTokens = 0;
+    let totalCacheCreationTokens = 0;
     let totalCost = 0;
     let turns = 0;
 
@@ -95,9 +100,10 @@ export class UsageCalculator {
         
         totalInputTokens += cost.inputTokens;
         totalOutputTokens += cost.outputTokens;
-        // Cache tokens should not be accumulated - use the latest value only
+        totalCacheCreationTokens += cost.cacheCreationTokens || 0;
+        // Cache read tokens should not be accumulated - use the latest value only
         if (cost.cacheTokens > 0) {
-          totalCacheTokens = cost.cacheTokens;
+          totalCacheReadTokens = cost.cacheTokens;
         }
         totalCost += cost.totalCost;
         
@@ -110,13 +116,15 @@ export class UsageCalculator {
     return {
       totalInputTokens,
       totalOutputTokens,
-      totalCacheTokens,
-      // Exclude cache tokens from totalTokens (they are tracked separately)
-      totalTokens: totalInputTokens + totalOutputTokens,
+      totalCacheTokens: totalCacheReadTokens,
+      totalCacheCreationTokens,
+      // Include all tokens including cache read tokens as per claude-context-calculator
+      // This matches ../research/tools/claude-context-calculator/src/calculator.js:121
+      totalTokens: totalInputTokens + totalOutputTokens + totalCacheCreationTokens + totalCacheReadTokens,
       totalCost,
       turns,
-      // Average excludes cache tokens (they are tracked separately)
-      averageTokensPerTurn: turns > 0 ? Math.round((totalInputTokens + totalOutputTokens) / turns) : 0
+      // Average includes all tokens as per claude-context-calculator
+      averageTokensPerTurn: turns > 0 ? Math.round((totalInputTokens + totalOutputTokens + totalCacheCreationTokens + totalCacheReadTokens) / turns) : 0
     };
   }
 

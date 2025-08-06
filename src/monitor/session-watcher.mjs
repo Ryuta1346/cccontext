@@ -299,15 +299,16 @@ export class SessionWatcher extends EventEmitter {
       const usage = data.message.usage;
       const inputTokens = usage.input_tokens || 0;
       const outputTokens = usage.output_tokens || 0;
-      const cacheTokens = usage.cache_read_input_tokens || 0;
+      const cacheReadTokens = usage.cache_read_input_tokens || 0;
+      const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
       
-      // Do NOT include cache tokens in session watcher accumulation
-      // Claude Code CLI excludes cache tokens from context calculation
-      sessionData.totalTokens += inputTokens + outputTokens;
+      // claude-context-calculator方式: 最新メッセージの全トークンが現在のコンテキスト使用量
+      // ../research/tools/claude-context-calculator/src/calculator.js:84行目と同じ計算式
+      // totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens
+      sessionData.totalTokens = cacheReadTokens + inputTokens + outputTokens + cacheCreationTokens;
       
-      // Cache tokens should not be accumulated - use the latest value only
-      // Each message reports the current cache state, not additional cache
-      sessionData.totalCacheTokens = cacheTokens;
+      // キャッシュトークンは個別に保存（互換性のため）
+      sessionData.totalCacheTokens = cacheReadTokens;
       
       // ターン数のカウント（assistantメッセージでカウント）
       if (data.message?.role === 'assistant') {
@@ -318,7 +319,8 @@ export class SessionWatcher extends EventEmitter {
       sessionData.latestUsage = {
         input: inputTokens,
         output: outputTokens,
-        cache: cacheTokens,
+        cache: cacheReadTokens,
+        cacheCreation: cacheCreationTokens,
         timestamp: data.timestamp
       };
     }

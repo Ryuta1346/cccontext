@@ -1,5 +1,6 @@
 import { UsageCalculator } from './usage-calculator.mjs';
 import { AUTO_COMPACT_CONFIG } from './auto-compact-config.mjs';
+import { calculateAutoCompactInfo, CLAUDE_CONSTANTS } from './claude-calculation.mjs';
 
 // モデル別のコンテキストウィンドウサイズ
 export const CONTEXT_WINDOWS = {
@@ -56,14 +57,14 @@ export class ContextTracker {
     const stats = this.calculator.calculateSessionTotals(validMessages, model);
     const contextWindow = this.getContextWindow(model);
     
-    // sessionDataのtotalTokensがある場合はそれを使用（累積値）
-    // ない場合はstatsから計算（初回など）
+    // sessionDataのtotalTokensがある場合はそれを使用
+    // session-watcher.mjsで計算済みの値（キャッシュ含む全トークン）
     const totalTokens = sessionData.totalTokens || stats.totalTokens;
     const totalCacheTokens = sessionData.totalCacheTokens !== undefined ? sessionData.totalCacheTokens : stats.totalCacheTokens;
     
-    // Include the latest cache tokens in context calculation
-    // Cache tokens represent the current cache state (not accumulated)
-    const actualTotalTokens = totalTokens + totalCacheTokens;
+    // totalTokensには既にキャッシュトークンが含まれている（session-watcher.mjs:306）
+    // 二重カウントを避けるため、totalTokensをそのまま使用
+    const actualTotalTokens = totalTokens;
     
     // コンテキスト使用率を計算
     const usagePercentage = (actualTotalTokens / contextWindow) * 100;
@@ -77,18 +78,13 @@ export class ContextTracker {
       stats.averageTokensPerTurn
     );
     
-    // AutoCompact情報の計算
-    const autoCompactThreshold = AUTO_COMPACT_CONFIG.getThreshold(model);
-    const autoCompactPercentage = autoCompactThreshold * 100;
-    
-    // Calculate tokens at which auto-compact triggers
-    const autoCompactTokenThreshold = contextWindow * autoCompactThreshold;
-    
-    // Calculate remaining tokens until auto-compact
-    const tokensUntilCompact = Math.max(0, autoCompactTokenThreshold - actualTotalTokens);
-    
-    // Calculate percentage points remaining until auto-compact triggers
-    const percentageUntilCompact = autoCompactPercentage - usagePercentage;
+    // AutoCompact情報の計算（Claude Codeと同じ計算方法を使用）
+    // メッセージ数は全メッセージ数を使用（Claude Codeと一致させるため）
+    const autoCompactInfo = calculateAutoCompactInfo(actualTotalTokens, contextWindow, {
+      messageCount: sessionData.messages?.length || validMessages.length || stats.turns,
+      cacheSize: totalCacheTokens,
+      autoCompactEnabled: true
+    });
     
     // 警告レベルの判定
     let warningLevel = 'normal';
@@ -121,16 +117,8 @@ export class ContextTracker {
       lastUpdate: new Date(),
       latestPrompt: sessionData.latestPrompt,
       latestPromptTime: sessionData.latestPromptTime,
-      // AutoCompact情報を追加
-      autoCompact: {
-        enabled: true,
-        threshold: autoCompactThreshold,
-        thresholdPercentage: autoCompactPercentage,
-        remainingPercentage: percentageUntilCompact,
-        remainingTokens: tokensUntilCompact,
-        warningLevel: AUTO_COMPACT_CONFIG.getWarningLevel(percentageUntilCompact),
-        willCompactSoon: percentageUntilCompact < 5
-      }
+      // AutoCompact情報を追加（Claude Codeの計算結果を使用）
+      autoCompact: autoCompactInfo
     };
     
     // 最新の使用量情報を追加
