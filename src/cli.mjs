@@ -727,7 +727,7 @@ program
 program
   .command('sessions')
   .description('List recent Claude Code sessions')
-  .option('-l, --limit <number>', 'Number of sessions to show', '10')
+  .option('--limit <number>', 'Number of sessions to show', '10')
   .option('--live', 'Live monitoring mode')
   .option('--debug', 'Enable debug mode for detailed logging')
   .option('--clear-cache', 'Clear session cache and exit')
@@ -751,8 +751,7 @@ program.on('command:*', function (operands) {
 // デフォルトコマンド（引数なしで実行された場合）
 program
   .option('--list', 'List all sessions for selection')
-  .option('-s, --session <number>', 'Monitor specific session by number from list')
-  .option('--list-limit <number>', 'Number of sessions to show with --list (default: 20)')
+  .option('--session <number>', 'Monitor specific session by number from list')
   .action((options) => {
     if (options.list) {
       cli.listSessionsForSelection({ limit: options.listLimit || 20 });
