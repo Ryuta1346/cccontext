@@ -282,6 +282,7 @@ describe('UsageCalculator', () => {
     
     expect(calculator.getModelName('claude-3-opus-20241022')).toBe('Claude 3 Opus');
     expect(calculator.getModelName('claude-opus-4-20250514')).toBe('Claude Opus 4');
+    expect(calculator.getModelName('claude-opus-4-1-20250805')).toBe('Claude Opus 4.1');
     expect(calculator.getModelName('claude-3-5-sonnet-20241022')).toBe('Claude 3.5 Sonnet');
     expect(calculator.getModelName('unknown-model')).toBe('Unknown Model');
   });
@@ -333,6 +334,7 @@ describe('UsageCalculator', () => {
       const expectedResults = {
         'claude-3-opus-20241022': { input: 0.015, output: 0.075, total: 0.09 },
         'claude-opus-4-20250514': { input: 0.015, output: 0.075, total: 0.09 },
+        'claude-opus-4-1-20250805': { input: 0.015, output: 0.075, total: 0.09 },
         'claude-3-5-sonnet-20241022': { input: 0.003, output: 0.015, total: 0.018 },
         'claude-3-5-haiku-20241022': { input: 0.001, output: 0.005, total: 0.006 },
         'claude-3-haiku-20240307': { input: 0.00025, output: 0.00125, total: 0.0015 }

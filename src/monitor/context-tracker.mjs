@@ -6,6 +6,7 @@ import { calculateAutoCompactInfo, CLAUDE_CONSTANTS } from './claude-calculation
 export const CONTEXT_WINDOWS = {
   'claude-3-opus-20241022': 200_000,
   'claude-opus-4-20250514': 200_000,
+  'claude-opus-4-1-20250805': 200_000,
   'claude-3-5-sonnet-20241022': 200_000,
   'claude-3-5-haiku-20241022': 200_000,
   'claude-3-haiku-20240307': 200_000,

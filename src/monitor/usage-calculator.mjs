@@ -10,6 +10,11 @@ export const PRICING = {
     output: 75.00,
     name: 'Claude Opus 4'
   },
+  'claude-opus-4-1-20250805': {
+    input: 15.00,
+    output: 75.00,
+    name: 'Claude Opus 4.1'
+  },
   'claude-sonnet-4-20250514': {
     input: 2.25,
     output: 11.25,

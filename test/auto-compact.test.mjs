@@ -12,6 +12,7 @@ describe('AutoCompact Configuration', () => {
     expect(AUTO_COMPACT_CONFIG.getThreshold('claude-3-5-sonnet-20241022')).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold('claude-3-opus-20241022')).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold('claude-opus-4-20250514')).toBe(0.92);
+    expect(AUTO_COMPACT_CONFIG.getThreshold('claude-opus-4-1-20250805')).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold('claude-sonnet-4-20250514')).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold('unknown-model')).toBe(0.92);
   });

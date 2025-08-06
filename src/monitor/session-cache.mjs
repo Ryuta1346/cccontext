@@ -194,7 +194,8 @@ export class SessionCache {
   getModelName(model) {
     const modelNames = {
       'claude-3-opus-20241022': 'Opus 3',
-      'claude-opus-4-20250514': 'Opus 4', 
+      'claude-opus-4-20250514': 'Opus 4',
+      'claude-opus-4-1-20250805': 'Opus 4.1', 
       'claude-sonnet-4-20250514': 'Sonnet 4',
       'claude-3-5-sonnet-20241022': 'Sonnet 3.5',
       'claude-3-5-haiku-20241022': 'Haiku 3.5',
@@ -209,12 +210,13 @@ export class SessionCache {
 
   calculateMessageCost(model, usage) {
     const pricing = {
-      'claude-3-opus-20241022': { input: 0.00375, output: 0.01875 },
-      'claude-opus-4-20250514': { input: 0.00375, output: 0.01875 },
+      'claude-3-opus-20241022': { input: 0.015, output: 0.075 },
+      'claude-opus-4-20250514': { input: 0.015, output: 0.075 },
+      'claude-opus-4-1-20250805': { input: 0.015, output: 0.075 },
       'claude-sonnet-4-20250514': { input: 0.00225, output: 0.01125 },
-      'claude-3-5-sonnet-20241022': { input: 0.00225, output: 0.01125 },
-      'claude-3-5-haiku-20241022': { input: 0.00075, output: 0.00375 },
-      'claude-3-haiku-20240307': { input: 0.00075, output: 0.00375 },
+      'claude-3-5-sonnet-20241022': { input: 0.003, output: 0.015 },
+      'claude-3-5-haiku-20241022': { input: 0.001, output: 0.005 },
+      'claude-3-haiku-20240307': { input: 0.00025, output: 0.00125 },
       'claude-2.1': { input: 0.002, output: 0.006 },
       'claude-2.0': { input: 0.002, output: 0.006 },
       'claude-instant-1.2': { input: 0.0002, output: 0.0006 }
@@ -231,6 +233,7 @@ export class SessionCache {
     const contextWindows = {
       'claude-3-opus-20241022': 200_000,
       'claude-opus-4-20250514': 200_000,
+      'claude-opus-4-1-20250805': 200_000,
       'claude-sonnet-4-20250514': 200_000,
       'claude-3-5-sonnet-20241022': 200_000,
       'claude-3-5-haiku-20241022': 200_000,

@@ -18,6 +18,7 @@ export const AUTO_COMPACT_CONFIG = {
     'claude-3-5-haiku-20241022': 0.92,
     'claude-3-opus-20241022': 0.92,
     'claude-opus-4-20250514': 0.92,
+    'claude-opus-4-1-20250805': 0.92,
     'claude-sonnet-4-20250514': 0.92,
     'claude-3-haiku-20240307': 0.92,
     'claude-2.1': 0.92,

@@ -2,6 +2,11 @@
 
 リアルタイムでClaude Codeのコンテキスト使用量を監視するツールです。Claude Codeとは独立して動作し、JSONLログファイルを監視してセッションごとのトークン使用量とコストを表示します。
 
+## 重要な注意事項
+
+- **算出値について**: 本ツールが表示するトークン使用量、コスト、Auto-Compact発動タイミングなどの算出結果は、cccontextが独自に計算した参考値です。Claude Code本体の算出結果と必ずしも一致しない場合があります。
+- **実装について**: このツールのほぼすべてのコードは、Claude Codeによって実装されました。
+
 ## 特徴
 
 - 🔍 **リアルタイム監視**: Claude Codeの実行中にコンテキスト使用量をライブで追跡
@@ -55,7 +60,7 @@ npx cccontext
 npx cccontext --list
 
 # 番号で直接指定（例: 2番目のセッション）
-npx cccontext -s 2
+npx cccontext --session 2
 ```
 
 ### セッション一覧
@@ -66,6 +71,15 @@ npx cccontext -s 2
 npx cccontext sessions
 npx cccontext sessions --limit 20  # 20件表示
 npx cccontext sessions --live      # ライブビューモード
+```
+
+### モニターコマンド
+
+特定セッションを監視：
+
+```bash
+npx cccontext monitor
+npx cccontext monitor --session 2  # 2番目のセッションを監視
 ```
 
 ### その他のオプション
@@ -86,8 +100,17 @@ npx cccontext sessions --debug
 | オプション | 説明 | デフォルト |
 |------------|------|------------|
 | `--list` | セッション一覧を表示して選択 | false |
-| `-s <number>` | セッション番号で直接指定 | - |
-| `--list -limit <number>` | --list使用時の表示件数 | 20 |
+| `--session <number>` | セッション番号で直接指定 | - |
+| `--version` | バージョン情報を表示 | - |
+| `--help` | ヘルプを表示 | - |
+
+### `cccontext monitor`
+Claude Codeのコンテキスト使用量を監視します。
+
+| オプション | 説明 | デフォルト |
+|------------|------|------------|
+| `--live` | ライブモニタリングモード | true |
+| `--session <number>` | 特定のセッションを番号で指定 | - |
 
 ### `cccontext sessions`
 最近のClaude Codeセッションを一覧表示します。
@@ -104,11 +127,11 @@ Auto-Compact表示：
 - `until 45.0%`: 通常 - Auto-Compact発動まで45%の余裕
 - `⚠until 15.0%`: 警告 - Auto-Compact発動まで15%
 - `!until 5.0%`: 危険 - まもなくAuto-Compact発動
-- `ACTIVE`: Auto-Compact発動中（95%到達）
+- `ACTIVE`: Auto-Compact発動中（92%到達）
 
 ## Auto-Compact監視について
 
-Claude CodeはコンテキストWindow使用量が95%に達すると自動的にAuto-Compactを実行し、会話を圧縮します。CCContextは実際のClaude Codeの動作に合わせた計算方法で、正確なAuto-Compact発動タイミングを予測します。
+Claude CodeはコンテキストWindow使用量が92%に達すると自動的にAuto-Compactを実行し、会話を圧縮します。CCContextは実際のClaude Codeの動作に合わせた計算方法で、正確なAuto-Compact発動タイミングを予測します。
 
 ### 計算方法
 CCContextは、Claude Codeと同じように、総メッセージ数に基づいてコンテキスト使用量を計算します。これにより、実際のAuto-Compact発動タイミングを正確に予測できます。
@@ -118,18 +141,18 @@ CCContextは、Claude Codeと同じように、総メッセージ数に基づい
 - **注意** (青): Auto-Compactまで15-30%
 - **警告** (黄): Auto-Compactまで5-15%
 - **危険** (赤): Auto-Compactまで5%未満
-- **発動中** (赤・強調): Auto-Compactが発動（95%到達）
+- **発動中** (赤・強調): Auto-Compactが発動（92%到達）
 
 ### 表示例
 ```
 # 余裕がある場合
-Auto-compact: at 95% (until 65.0%)
+Auto-compact: at 92% (until 65.0%)
 
 # 警告レベル
-Auto-compact: at 95% (⚠until 8.5%)
+Auto-compact: at 92% (⚠until 8.5%)
 
 # 危険レベル
-Auto-compact: at 95% (!until 2.5%)
+Auto-compact: at 92% (!until 2.5%)
 
 # 発動中
 AUTO-COMPACT ACTIVE
@@ -139,6 +162,8 @@ AUTO-COMPACT ACTIVE
 
 - Claude 3 Opus
 - Claude Opus 4
+- Claude Opus 4.1 (2025年8月リリース)
+- Claude Sonnet 4 (2025年5月リリース)
 - Claude 3.5 Sonnet
 - Claude 3.5 Haiku
 - Claude 3 Haiku

@@ -92,6 +92,7 @@ describe('ContextTracker', () => {
     
     expect(tracker.getContextWindow('claude-3-opus-20241022')).toBe(200_000);
     expect(tracker.getContextWindow('claude-opus-4-20250514')).toBe(200_000);
+    expect(tracker.getContextWindow('claude-opus-4-1-20250805')).toBe(200_000);
     expect(tracker.getContextWindow('claude-3-5-sonnet-20241022')).toBe(200_000);
     expect(tracker.getContextWindow('claude-2.0')).toBe(100_000);
     expect(tracker.getContextWindow('claude-instant-1.2')).toBe(100_000);
@@ -383,6 +384,7 @@ describe('ContextTracker', () => {
     it('should have correct context window sizes', () => {
       expect(CONTEXT_WINDOWS['claude-3-opus-20241022']).toBe(200_000);
       expect(CONTEXT_WINDOWS['claude-opus-4-20250514']).toBe(200_000);
+      expect(CONTEXT_WINDOWS['claude-opus-4-1-20250805']).toBe(200_000);
       expect(CONTEXT_WINDOWS['claude-3-5-sonnet-20241022']).toBe(200_000);
       expect(CONTEXT_WINDOWS['claude-3-5-haiku-20241022']).toBe(200_000);
       expect(CONTEXT_WINDOWS['claude-3-haiku-20240307']).toBe(200_000);
