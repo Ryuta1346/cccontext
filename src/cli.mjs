@@ -752,6 +752,15 @@ program
   .option('--list', 'List all sessions for selection')
   .option('--session <number>', 'Monitor specific session by number from list')
   .action((options) => {
+    // コマンドラインの引数をチェック
+    const args = process.argv.slice(2);
+    // 未知のコマンドが指定されている場合はエラー
+    if (args.length > 0 && !args[0].startsWith('-') && 
+        !['monitor', 'sessions'].includes(args[0])) {
+      console.error(`error: unknown command '${args[0]}'`);
+      process.exit(1);
+    }
+    
     if (options.list) {
       cli.listSessionsForSelection({ limit: options.listLimit || 20 });
     } else {

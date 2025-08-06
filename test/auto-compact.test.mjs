@@ -253,8 +253,8 @@ describe('Claude Calculation Module', () => {
     })).toBe(40000); // Capped at 20% of 200k
   });
 
-  it('should match claude-context-calculator calculations', () => {
-    // Test case from claude-context-calculator
+  it('should match expected calculations', () => {
+    // Test case for context calculator
     const currentUsage = 150000;
     const contextWindow = 200000;
     

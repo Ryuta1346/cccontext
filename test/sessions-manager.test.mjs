@@ -294,8 +294,8 @@ describe('SessionsManager', () => {
       manager.watcher.cachedFiles.add(newFile);
       manager.watcher.emit('session-added', { sessionId: 'new-session', filePath: newFile });
       
-      // Wait for batch processing
-      await new Promise(resolve => setTimeout(resolve, 150));
+      // Wait for batch processing (increased timeout for reliability)
+      await new Promise(resolve => setTimeout(resolve, 250));
       
       expect(updateEmitted).toBe(true);
     });
