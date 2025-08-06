@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getModelName, calculateMessageCost, getContextWindow, calculateUsagePercentage } from './model-config.mjs';
 
 /**
  * セッションファイルのスマートキャッシュシステム
@@ -102,7 +103,7 @@ export class SessionCache {
           const data = JSON.parse(lines[i]);
           if (data.message?.model) {
             model = data.message.model;
-            modelName = this.getModelName(model);
+            modelName = getModelName(model);
           }
         } catch (e) {
           // Skip invalid JSON
@@ -136,7 +137,7 @@ export class SessionCache {
               turns++;
             }
 
-            totalCost += this.calculateMessageCost(model, usage);
+            totalCost += calculateMessageCost(model, usage);
           }
 
           // Get latest user prompt (first found in reverse order)
@@ -176,7 +177,7 @@ export class SessionCache {
         firstTimestamp,
         lastTimestamp,
         filePath,
-        usagePercentage: this.calculateUsagePercentage(model, totalTokens)
+        usagePercentage: calculateUsagePercentage(model, totalTokens)
       };
 
       // Save to cache
@@ -190,65 +191,6 @@ export class SessionCache {
     }
   }
 
-  getModelName(model) {
-    const modelNames = {
-      'claude-3-opus-20241022': 'Opus 3',
-      'claude-opus-4-20250514': 'Opus 4',
-      'claude-opus-4-1-20250805': 'Opus 4.1', 
-      'claude-sonnet-4-20250514': 'Sonnet 4',
-      'claude-3-5-sonnet-20241022': 'Sonnet 3.5',
-      'claude-3-5-haiku-20241022': 'Haiku 3.5',
-      'claude-3-haiku-20240307': 'Haiku 3',
-      'claude-2.1': 'Claude 2.1',
-      'claude-2.0': 'Claude 2.0',
-      'claude-instant-1.2': 'Instant 1.2'
-    };
-    
-    return modelNames[model] || model;
-  }
-
-  calculateMessageCost(model, usage) {
-    const pricing = {
-      'claude-3-opus-20241022': { input: 0.015, output: 0.075 },
-      'claude-opus-4-20250514': { input: 0.015, output: 0.075 },
-      'claude-opus-4-1-20250805': { input: 0.015, output: 0.075 },
-      'claude-sonnet-4-20250514': { input: 0.00225, output: 0.01125 },
-      'claude-3-5-sonnet-20241022': { input: 0.003, output: 0.015 },
-      'claude-3-5-haiku-20241022': { input: 0.001, output: 0.005 },
-      'claude-3-haiku-20240307': { input: 0.00025, output: 0.00125 },
-      'claude-2.1': { input: 0.002, output: 0.006 },
-      'claude-2.0': { input: 0.002, output: 0.006 },
-      'claude-instant-1.2': { input: 0.0002, output: 0.0006 }
-    };
-
-    const modelPricing = pricing[model] || { input: 0, output: 0 };
-    const inputCost = ((usage.input_tokens || 0) / 1000) * modelPricing.input;
-    const outputCost = ((usage.output_tokens || 0) / 1000) * modelPricing.output;
-    
-    return inputCost + outputCost;
-  }
-
-  getContextWindow(model) {
-    const contextWindows = {
-      'claude-3-opus-20241022': 200_000,
-      'claude-opus-4-20250514': 200_000,
-      'claude-opus-4-1-20250805': 200_000,
-      'claude-sonnet-4-20250514': 200_000,
-      'claude-3-5-sonnet-20241022': 200_000,
-      'claude-3-5-haiku-20241022': 200_000,
-      'claude-3-haiku-20240307': 200_000,
-      'claude-2.1': 200_000,
-      'claude-2.0': 100_000,
-      'claude-instant-1.2': 100_000
-    };
-    
-    return contextWindows[model] || 200_000;
-  }
-
-  calculateUsagePercentage(model, totalTokens) {
-    const contextWindow = this.getContextWindow(model);
-    return (totalTokens / contextWindow) * 100;
-  }
 
   /**
    * セッションをキャッシュから削除

@@ -1,21 +1,9 @@
 import { UsageCalculator } from './usage-calculator.mjs';
 import { calculateAutoCompactInfo, CLAUDE_CONSTANTS } from './claude-calculation.mjs';
+import { CONTEXT_WINDOWS, getContextWindow as getContextWindowFromConfig } from './model-config.mjs';
 
-// モデル別のコンテキストウィンドウサイズ
-export const CONTEXT_WINDOWS = {
-  'claude-3-opus-20241022': 200_000,
-  'claude-opus-4-20250514': 200_000,
-  'claude-opus-4-1-20250805': 200_000,
-  'claude-3-5-sonnet-20241022': 200_000,
-  'claude-3-5-haiku-20241022': 200_000,
-  'claude-3-haiku-20240307': 200_000,
-  'claude-2.1': 200_000,
-  'claude-2.0': 100_000,
-  'claude-instant-1.2': 100_000
-};
-
-// デフォルトのコンテキストウィンドウサイズ
-const DEFAULT_CONTEXT_WINDOW = 200_000;
+// Re-export CONTEXT_WINDOWS for backward compatibility
+export { CONTEXT_WINDOWS };
 
 export class ContextTracker {
   constructor() {
@@ -24,7 +12,7 @@ export class ContextTracker {
   }
 
   getContextWindow(model) {
-    return CONTEXT_WINDOWS[model] || DEFAULT_CONTEXT_WINDOW;
+    return getContextWindowFromConfig(model);
   }
 
   updateSession(sessionData) {
