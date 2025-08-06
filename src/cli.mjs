@@ -11,7 +11,6 @@ import chalk from 'chalk';
 import stringWidth from 'string-width';
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 
 class CCContextCLI {
   constructor() {

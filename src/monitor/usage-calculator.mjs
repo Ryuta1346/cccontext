@@ -64,13 +64,13 @@ export class UsageCalculator {
     
     const pricing = this.pricing[model] || DEFAULT_PRICING;
     
-    // 数値に変換し、無効な値は0として扱う
+    // Convert to numbers, treat invalid values as 0
     const inputTokens = Number(usage.input_tokens) || 0;
     const outputTokens = Number(usage.output_tokens) || 0;
     const cacheReadTokens = Number(usage.cache_read_input_tokens) || 0;
     const cacheCreationTokens = Number(usage.cache_creation_input_tokens) || 0;
     
-    // キャッシュトークンは入力トークンの10%のコストとして計算
+    // Cache tokens cost 10% of input token price
     const effectiveInputTokens = inputTokens + cacheCreationTokens + (cacheReadTokens * 0.1);
     
     const inputCost = (effectiveInputTokens / 1_000_000) * pricing.input;
@@ -84,9 +84,7 @@ export class UsageCalculator {
       outputTokens,
       cacheTokens: cacheReadTokens,
       cacheCreationTokens,
-      // Include cache creation tokens in totalTokens (they are part of input)
-      // Also include cache read tokens as per claude-context-calculator
-      // This matches ../research/tools/claude-context-calculator/src/calculator.js:84
+      // Include all tokens for context window calculation
       totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens
     };
   }
@@ -106,7 +104,7 @@ export class UsageCalculator {
         totalInputTokens += cost.inputTokens;
         totalOutputTokens += cost.outputTokens;
         totalCacheCreationTokens += cost.cacheCreationTokens || 0;
-        // Cache read tokens should not be accumulated - use the latest value only
+        // Cache read tokens: use latest value only, not accumulated
         if (cost.cacheTokens > 0) {
           totalCacheReadTokens = cost.cacheTokens;
         }
@@ -123,12 +121,10 @@ export class UsageCalculator {
       totalOutputTokens,
       totalCacheTokens: totalCacheReadTokens,
       totalCacheCreationTokens,
-      // Include all tokens including cache read tokens as per claude-context-calculator
-      // This matches ../research/tools/claude-context-calculator/src/calculator.js:121
+      // Include all tokens for context window calculation
       totalTokens: totalInputTokens + totalOutputTokens + totalCacheCreationTokens + totalCacheReadTokens,
       totalCost,
       turns,
-      // Average includes all tokens as per claude-context-calculator
       averageTokensPerTurn: turns > 0 ? Math.round((totalInputTokens + totalOutputTokens + totalCacheCreationTokens + totalCacheReadTokens) / turns) : 0
     };
   }

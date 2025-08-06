@@ -278,23 +278,23 @@ export class SessionWatcher extends EventEmitter {
   }
 
   processMessage(sessionData, data) {
-    // /compact検出
+    // Detect /compact
     if (data.message?.content?.includes('[Previous conversation summary') || 
         data.message?.content?.includes('Previous conversation compacted')) {
       sessionData.isCompacted = true;
     }
     
-    // タイムスタンプの記録
+
     if (!sessionData.startTime && data.timestamp) {
       sessionData.startTime = new Date(data.timestamp);
     }
 
-    // モデル情報の抽出（最新のものを優先、ただし既存の情報を保持）
+
     if (data.message?.model) {
       sessionData.model = data.message.model;
     }
 
-    // usage情報の抽出と集計
+
     if (data.message?.usage) {
       const usage = data.message.usage;
       const inputTokens = usage.input_tokens || 0;
@@ -302,20 +302,18 @@ export class SessionWatcher extends EventEmitter {
       const cacheReadTokens = usage.cache_read_input_tokens || 0;
       const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
       
-      // claude-context-calculator方式: 最新メッセージの全トークンが現在のコンテキスト使用量
-      // ../research/tools/claude-context-calculator/src/calculator.js:84行目と同じ計算式
-      // totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens
+      // Total tokens include all token types for context window calculation
       sessionData.totalTokens = cacheReadTokens + inputTokens + outputTokens + cacheCreationTokens;
       
-      // キャッシュトークンは個別に保存（互換性のため）
+      // Store cache tokens separately
       sessionData.totalCacheTokens = cacheReadTokens;
       
-      // ターン数のカウント（assistantメッセージでカウント）
+
       if (data.message?.role === 'assistant') {
         sessionData.turns++;
       }
 
-      // 最新のusage情報を保存
+      // Store latest usage
       sessionData.latestUsage = {
         input: inputTokens,
         output: outputTokens,
@@ -325,7 +323,7 @@ export class SessionWatcher extends EventEmitter {
       };
     }
 
-    // 最新のユーザープロンプトを保存
+    // Store latest user prompt
     if (data.message?.role === 'user' && data.message?.content) {
       const content = Array.isArray(data.message.content) 
         ? data.message.content.find(c => c.type === 'text')?.text || ''

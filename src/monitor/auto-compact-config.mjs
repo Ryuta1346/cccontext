@@ -1,18 +1,14 @@
-// AutoCompact機能の設定
-// Claude Codeの内部実装と完全に一致させるための設定
+// AutoCompact configuration
 export const AUTO_COMPACT_CONFIG = {
-  // デフォルトのAutoCompact発動閾値
-  DEFAULT_THRESHOLD: 0.92, // 92%でAutoCompact発動（Claude Code実装解析より）
+  DEFAULT_THRESHOLD: 0.92, // Trigger at 92%
   
-  // システムオーバーヘッド定数（Claude Code LkB関数の模倣）
   SYSTEM_OVERHEAD: {
-    BASE: 25_000,              // 基本オーバーヘッド（約25kトークン）
-    PER_MESSAGE: 15,           // メッセージあたりのオーバーヘッド
-    CACHE_FACTOR: 0.015,       // キャッシュサイズに対する係数
-    MAX_RATIO: 0.2             // 最大オーバーヘッド比率（20%）
+    BASE: 25_000,
+    PER_MESSAGE: 15,
+    CACHE_FACTOR: 0.015,
+    MAX_RATIO: 0.2
   },
   
-  // モデル別の閾値（公式仕様ではモデル差異なしのため統一）
   MODEL_THRESHOLDS: {
     'claude-3-5-sonnet-20241022': 0.92,
     'claude-3-5-haiku-20241022': 0.92,
@@ -26,12 +22,10 @@ export const AUTO_COMPACT_CONFIG = {
     'claude-instant-1.2': 0.92
   },
   
-  // モデルに応じた閾値を取得
   getThreshold(model) {
     return this.MODEL_THRESHOLDS[model] || this.DEFAULT_THRESHOLD;
   },
   
-  // 警告レベルを判定
   getWarningLevel(remainingPercentage) {
     if (remainingPercentage <= 0) return 'active';
     if (remainingPercentage < 5) return 'critical';

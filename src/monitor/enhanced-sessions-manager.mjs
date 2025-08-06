@@ -5,7 +5,6 @@ import { ContextTracker } from './context-tracker.mjs';
 
 /**
  * イベント駆動のセッション管理システム
- * setIntervalによるポーリングを廃止し、chokidarイベントのみで更新
  */
 export class EnhancedSessionsManager extends EventEmitter {
   constructor() {
