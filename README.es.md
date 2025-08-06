@@ -12,7 +12,7 @@ CCContext empodera a los usuarios de Claude Code para maximizar el potencial de 
 - 🚀 **Prevenir Interrupciones de Trabajo**: Monitorear proactivamente el uso del contexto para evitar activaciones inesperadas del Auto-Compact que podrían interrumpir su flujo de trabajo
 - 💡 **Optimizar el Rendimiento de IA**: Mantener la calidad de respuesta de Claude gestionando el contexto de manera efectiva y sabiendo cuándo iniciar nuevas sesiones
 - 💰 **Control de Costos**: Rastrear el consumo de tokens y costos en tiempo real, incluyendo la utilización de tokens de caché para optimización de costos
-- 🎯 **Perspectivas Predictivas**: Pronosticar con precisión el momento de activación del Auto-Compact (al 92%) mediante análisis sofisticado de patrones de uso
+- 🎯 **Perspectivas Predictivas**: Pronosticar con precisión el momento de activación del Auto-Compact mediante análisis sofisticado de patrones de uso
 - 🔄 **Inteligencia de Sesión**: Gestionar múltiples sesiones concurrentes de manera eficiente con seguimiento individual y monitoreo en vivo
 
 ## Notas Importantes
@@ -23,11 +23,11 @@ CCContext empodera a los usuarios de Claude Code para maximizar el potencial de 
 ## Características
 
 - 🔍 **Monitoreo en Tiempo Real**: Seguimiento en vivo del uso de contexto durante la ejecución de Claude Code
-- 📊 **Gestión de Sesiones**: Visualización individual del uso de tokens, costos y capacidad restante para cada sesión
-- ⚠️ **Sistema de Alertas**: Alertas cuando el uso de contexto alcanza el 80%, 90% y 95%
-- 🤖 **Seguimiento de Auto-Compact**: Muestra la capacidad restante hasta la activación del Auto-Compact de Claude Code (al 92%)
+- 📊 **Gestión por Sesión**: Visualización individual del uso de tokens, costos y capacidad restante para cada sesión
+- ⚠️ **Sistema de Alertas**: Alertas cuando el uso de contexto alcanza ciertos umbrales
 - 💰 **Cálculo de Costos**: Cálculo de costos en tiempo real basado en precios específicos del modelo
 - 🎯 **No Intrusivo**: No afecta a Claude Code en sí mismo, solo lee los logs JSONL
+- 🤖 **Seguimiento de Auto-Compact**: Muestra la capacidad restante hasta la activación del Auto-Compact de Claude Code
 
 ## Instalación
 
@@ -140,11 +140,11 @@ Visualización del Auto-Compact:
 - `until 45.0%`: Normal - Margen del 45% hasta la activación del Auto-Compact
 - `⚠until 15.0%`: Advertencia - 15% hasta la activación del Auto-Compact
 - `!until 5.0%`: Peligro - Activación del Auto-Compact inminente
-- `ACTIVE`: Auto-Compact activo (92% alcanzado)
+- `ACTIVE`: Auto-Compact activo
 
 ## Acerca del Monitoreo del Auto-Compact
 
-Claude Code ejecuta automáticamente el Auto-Compact cuando el uso de la ventana de contexto alcanza el 92%, comprimiendo la conversación. CCContext utiliza métodos de cálculo alineados con el comportamiento real de Claude Code para predecir con precisión el momento de activación del Auto-Compact.
+Claude Code ejecuta automáticamente el Auto-Compact cuando el uso de la ventana de contexto alcanza cierto umbral, comprimiendo la conversación. CCContext utiliza métodos de cálculo alineados con el comportamiento real de Claude Code para predecir con precisión el momento de activación del Auto-Compact.
 
 ### Método de Cálculo
 CCContext calcula el uso de contexto basándose en el conteo total de mensajes, igual que Claude Code. Esto permite la predicción precisa del momento real de activación del Auto-Compact.
@@ -154,7 +154,7 @@ CCContext calcula el uso de contexto basándose en el conteo total de mensajes, 
 - **Aviso** (Azul): 15-30% hasta el Auto-Compact
 - **Advertencia** (Amarillo): 5-15% hasta el Auto-Compact
 - **Peligro** (Rojo): Menos del 5% hasta el Auto-Compact
-- **Activo** (Rojo/Enfatizado): Auto-Compact activado (92% alcanzado)
+- **Activo** (Rojo/Enfatizado): Auto-Compact activado
 
 ### Ejemplos de Visualización
 ```

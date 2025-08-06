@@ -12,7 +12,7 @@ CCContext empowers Claude Code users to maximize their AI assistant's potential 
 - 🚀 **Prevent Work Interruptions**: Proactively monitor context usage to avoid unexpected Auto-Compact triggers that could disrupt your workflow
 - 💡 **Optimize AI Performance**: Maintain Claude's response quality by managing context effectively and knowing when to start new sessions
 - 💰 **Control Costs**: Track token consumption and costs in real-time, including cache token utilization for cost optimization
-- 🎯 **Predictive Insights**: Accurately forecast Auto-Compact activation timing (at 92%) through sophisticated usage pattern analysis
+- 🎯 **Predictive Insights**: Accurately forecast Auto-Compact activation timing through sophisticated usage pattern analysis
 - 🔄 **Session Intelligence**: Manage multiple concurrent sessions efficiently with individual tracking and live monitoring
 
 ## Important Notes
@@ -23,11 +23,11 @@ CCContext empowers Claude Code users to maximize their AI assistant's potential 
 ## Features
 
 - 🔍 **Real-time Monitoring**: Live tracking of context usage during Claude Code execution
-- 📊 **Session Management**: Individual display of token usage, costs, and remaining capacity for each session
-- ⚠️ **Warning System**: Alerts when context usage reaches 80%, 90%, and 95%
-- 🤖 **Auto-Compact Tracking**: Display remaining capacity until Claude Code Auto-Compact activation (at 92%)
+- 📊 **Session-by-Session Management**: Individual display of token usage, costs, and remaining capacity for each session
+- ⚠️ **Warning System**: Alerts at multiple context usage thresholds
 - 💰 **Cost Calculation**: Real-time cost calculation based on model-specific pricing
 - 🎯 **Non-intrusive**: Does not affect Claude Code itself, only reads JSONL logs
+- 🤖 **Auto-Compact Tracking**: Display remaining capacity until Claude Code Auto-Compact activation
 
 ## Installation
 
@@ -136,15 +136,15 @@ List recent Claude Code sessions.
 | `--debug` | Debug mode | false |
 
 Auto-Compact Display:
-- `until 65.0%`: Normal - 65% margin until Auto-Compact activation
+- `until 65.0%`: Normal - ample margin until Auto-Compact activation
 - `until 45.0%`: Normal - 45% margin until Auto-Compact activation
 - `⚠until 15.0%`: Warning - 15% until Auto-Compact activation
 - `!until 5.0%`: Danger - Auto-Compact activation imminent
-- `ACTIVE`: Auto-Compact active (92% reached)
+- `ACTIVE`: Auto-Compact active
 
 ## About Auto-Compact Monitoring
 
-Claude Code automatically executes Auto-Compact when context window usage reaches 92%, compressing the conversation. CCContext uses calculation methods aligned with actual Claude Code behavior to accurately predict Auto-Compact activation timing.
+Claude Code automatically executes Auto-Compact when context window usage reaches a certain threshold, compressing the conversation. CCContext uses calculation methods aligned with actual Claude Code behavior to accurately predict Auto-Compact activation timing.
 
 ### Calculation Method
 CCContext calculates context usage based on total message count, just like Claude Code. This enables accurate prediction of actual Auto-Compact activation timing.
@@ -154,7 +154,7 @@ CCContext calculates context usage based on total message count, just like Claud
 - **Notice** (Blue): 15-30% until Auto-Compact
 - **Warning** (Yellow): 5-15% until Auto-Compact
 - **Danger** (Red): Less than 5% until Auto-Compact
-- **Active** (Red/Emphasized): Auto-Compact activated (92% reached)
+- **Active** (Red/Emphasized): Auto-Compact activated
 
 ### Display Examples
 ```
