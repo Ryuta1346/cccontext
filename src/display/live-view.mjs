@@ -71,7 +71,7 @@ export class LiveView {
       top: 7,
       left: 0,
       width: '100%',
-      height: 6,
+      height: 7,
       border: {
         type: 'line',
         fg: 'gray'
@@ -89,7 +89,7 @@ export class LiveView {
     // 最新ターン情報ボックス
     this.boxes.latestTurn = blessed.box({
       parent: this.boxes.container,
-      top: 13,
+      top: 14,
       left: 0,
       width: '100%',
       height: 6,
@@ -110,7 +110,7 @@ export class LiveView {
     // 最新プロンプトボックス
     this.boxes.latestPrompt = blessed.box({
       parent: this.boxes.container,
-      top: 19,
+      top: 20,
       left: 0,
       width: '100%',
       height: 4,
@@ -131,7 +131,7 @@ export class LiveView {
     // セッション合計ボックス
     this.boxes.sessionTotals = blessed.box({
       parent: this.boxes.container,
-      top: 23,
+      top: 24,
       left: 0,
       width: '100%',
       height: 6,
@@ -215,10 +215,11 @@ export class LiveView {
   }
 
   formatSessionInfo(info) {
+    const duration = this.calculateDuration(info.startTime);
     return `
 Session: ${chalk.yellow(info.sessionId.substring(0, 16))}...
 Model: ${chalk.cyan(info.modelName)}
-Started: ${chalk.gray(info.duration)} ago`;
+Started: ${chalk.gray(duration)} ago`;
   }
 
   formatContextUsage(info) {
@@ -226,10 +227,23 @@ Started: ${chalk.gray(info.duration)} ago`;
     const bar = this.createProgressBar(info.usagePercentage);
     const color = this.getPercentageColor(info.usagePercentage);
     
+    // AutoCompact情報のフォーマット
+    let autoCompactInfo = '';
+    if (info.autoCompact?.enabled) {
+      const ac = info.autoCompact;
+      const acColor = this.getAutoCompactColor(ac.warningLevel);
+      
+      if (ac.remainingPercentage > 0) {
+        autoCompactInfo = `\nAuto-compact: ${chalk[acColor](`at ${ac.thresholdPercentage}% (until ${ac.remainingPercentage.toFixed(1)}%)`)}`;
+      } else {
+        autoCompactInfo = `\n${chalk.red.bold('AUTO-COMPACT ACTIVE')}`;
+      }
+    }
+    
     return `
 ${bar} ${chalk[color](percentage + '%')} (${this.formatTokens(info.totalTokens)}/${this.formatTokens(info.contextWindow)})
 
-Remaining: ${chalk.green(this.formatTokens(info.remainingTokens))} tokens (${info.remainingPercentage.toFixed(1)}%)
+Remaining: ${chalk.green(this.formatTokens(info.remainingTokens))} tokens (${info.remainingPercentage.toFixed(1)}%)${autoCompactInfo}
 ${this.getWarningMessage(info)}`;
   }
 
@@ -266,10 +280,11 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
 
   createProgressBar(percentage) {
     const width = 40;
-    const filled = Math.round((percentage / 100) * width);
-    const empty = width - filled;
+    const safePercentage = Math.max(0, Math.min(100, percentage || 0));
+    const filled = Math.max(0, Math.min(width, Math.round((safePercentage / 100) * width)));
+    const empty = Math.max(0, width - filled);
     
-    const color = this.getPercentageColor(percentage);
+    const color = this.getPercentageColor(safePercentage);
     const filledChar = chalk[color]('█');
     const emptyChar = chalk.gray('░');
     
@@ -289,6 +304,16 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
       case 'critical': return 'red';
       case 'severe': return 'redBright';
       case 'warning': return 'yellow';
+      default: return 'gray';
+    }
+  }
+
+  getAutoCompactColor(warningLevel) {
+    switch (warningLevel) {
+      case 'active': return 'red';
+      case 'critical': return 'red';
+      case 'warning': return 'yellow';
+      case 'notice': return 'blue';
       default: return 'gray';
     }
   }
@@ -317,6 +342,19 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
 
   formatCost(cost) {
     return `$${cost.toFixed(2)}`;
+  }
+
+  calculateDuration(startTime) {
+    if (!startTime) return 'Unknown';
+    
+    const duration = Date.now() - new Date(startTime).getTime();
+    const minutes = Math.floor(duration / 60000);
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    }
+    return `${minutes}m`;
   }
 
   showError(message) {

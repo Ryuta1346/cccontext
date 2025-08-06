@@ -135,7 +135,7 @@ describe('SessionWatcher', () => {
       });
       // When adding string 'abc' to number, JavaScript concatenates: -100 + 'abc' = '-100abc'
       expect(typeof sessionData.totalTokens).toBe('string');
-      expect(sessionData.totalTokens).toBe('0-100abc'); // 0 + (-100 + 'abc')
+      expect(sessionData.totalTokens).toBe('-100abc0'); // cache_read:0 + input:-100 + output:'abc' + cache_creation:0
 
       // Completely invalid message structure - skip null since it causes error
       watcher.processMessage(sessionData, {});
@@ -222,7 +222,7 @@ describe('SessionWatcher', () => {
     });
 
     expect(sessionData.model).toBe('claude-3-5-sonnet-20241022');
-    expect(sessionData.totalTokens).toBe(100);
+    expect(sessionData.totalTokens).toBe(100); // cache_read:0 + input:100 + output:0 + cache_creation:0
     expect(sessionData.turns).toBe(0); // userメッセージはターンとしてカウントしない
     expect(sessionData.startTime).toBeTruthy();
 
@@ -239,12 +239,13 @@ describe('SessionWatcher', () => {
       }
     });
 
-    expect(sessionData.totalTokens).toBe(300); // 100 + 200
+    expect(sessionData.totalTokens).toBe(250); // cache_read:50 + input:0 + output:200 + cache_creation:0
     expect(sessionData.turns).toBe(1); // assistantメッセージで+1
     expect(sessionData.latestUsage).toEqual({
       input: 0,
       output: 200,
       cache: 50,
+      cacheCreation: 0,
       timestamp: '2025-01-01T00:00:10Z'
     });
   });
@@ -271,7 +272,7 @@ describe('SessionWatcher', () => {
       }
     });
 
-    expect(sessionData.totalTokens).toBe(3000); // input + output (cacheは含まない)
+    expect(sessionData.totalTokens).toBe(3500); // cache_read:500 + input:1000 + output:2000 + cache_creation:0
     expect(sessionData.latestUsage.cache).toBe(500);
   });
 
@@ -304,7 +305,7 @@ describe('SessionWatcher', () => {
     
     const sessionData = watcher.sessions.get('test-session');
     expect(sessionData).toBeTruthy();
-    expect(sessionData.totalTokens).toBe(300);
+    expect(sessionData.totalTokens).toBe(200); // 最新メッセージ(assistant): cache_read:0 + input:0 + output:200 + cache_creation:0
     expect(sessionData.turns).toBe(1);
     expect(sessionData.model).toBe('claude-3-5-sonnet-20241022');
     expect(sessionData.messages.length).toBe(2);
@@ -534,7 +535,7 @@ describe('SessionWatcher', () => {
         messageReceived = true;
         expect(sessionId).toBe('incremental');
         expect(data.message.role).toBe('assistant');
-        expect(sessionData.totalTokens).toBe(300); // 100 + 200
+        expect(sessionData.totalTokens).toBe(300); // 最新メッセージ: cache_read:0 + input:100 + output:200 + cache_creation:0
       });
       
       // Append new content
@@ -768,7 +769,7 @@ describe('SessionWatcher', () => {
       
       // Verify initial state
       const initialSession = watcher.sessions.get('compact-test');
-      expect(initialSession.totalTokens).toBe(3300); // 100+200+200+1000+300+1500
+      expect(initialSession.totalTokens).toBe(1800); // 最新メッセージ: cache_read:0 + input:300 + output:1500 + cache_creation:0
 
       // Simulate /compact - replace file with compacted version
       const compactedData = [
@@ -787,7 +788,7 @@ describe('SessionWatcher', () => {
 
       // Verify session was updated with new data
       const updatedSession = watcher.sessions.get('compact-test');
-      expect(updatedSession.totalTokens).toBe(150); // 50+100 (compacted)
+      expect(updatedSession.totalTokens).toBe(150); // 最新メッセージ: cache_read:0 + input:50 + output:100 + cache_creation:0
       expect(updatedSession.turns).toBe(1); // Only one assistant turn in compacted version
     });
 
@@ -824,7 +825,7 @@ describe('SessionWatcher', () => {
 
       const session = watcher.sessions.get('large-change');
       expect(session.turns).toBe(50); // 50 assistant messages
-      expect(session.totalTokens).toBe(15000); // 50 * (100+200)
+      expect(session.totalTokens).toBe(300); // 最新メッセージ: cache_read:0 + input:100 + output:200 + cache_creation:0
     });
 
     it('should emit session-data event when file is compacted', async () => {
@@ -869,7 +870,7 @@ describe('SessionWatcher', () => {
 
       expect(sessionDataEmitted).toBe(true);
       expect(emittedData).toBeTruthy();
-      expect(emittedData.totalTokens).toBe(50);
+      expect(emittedData.totalTokens).toBe(50); // 最新メッセージ: cache_read:0 + input:50 + output:0 + cache_creation:0
     });
   });
 });

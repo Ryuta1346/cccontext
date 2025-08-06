@@ -89,11 +89,10 @@ export class SessionsManager extends EventEmitter {
         turns: sessionData.turns
       });
 
-      // Add cache-specific data
+      // Return all context info including autoCompact
       return {
         ...contextInfo,
-        lastModified: sessionData.lastModified,
-        usagePercentage: this.cache.calculateUsagePercentage(sessionData)
+        lastModified: sessionData.lastModified
       };
     } catch (error) {
       this.log(`Error loading session ${filePath}: ${error.message}`);

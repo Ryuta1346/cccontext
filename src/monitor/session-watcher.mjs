@@ -175,6 +175,7 @@ export class SessionWatcher extends EventEmitter {
           sessionId,
           messages: [],
           totalTokens: 0,
+          totalCacheTokens: 0,
           totalCost: 0,
           turns: 0,
           model: null,
@@ -186,6 +187,7 @@ export class SessionWatcher extends EventEmitter {
       if (isCompactOperation && this.sessions.has(sessionId)) {
         sessionData.messages = [];
         sessionData.totalTokens = 0;
+        sessionData.totalCacheTokens = 0;
         sessionData.totalCost = 0;
         sessionData.turns = 0;
         sessionData.model = null;
@@ -211,7 +213,7 @@ export class SessionWatcher extends EventEmitter {
   async handleFileChange(sessionId, filePath) {
     try {
       const stats = await fs.promises.stat(filePath);
-      const lastPosition = this.filePositions.get(sessionId) || 0;
+      const lastPosition = Math.max(0, this.filePositions.get(sessionId) || 0);
       const lastMtime = this.fileMtimes?.get(sessionId) || 0;
       
       // ファイルサイズが減少した場合、または大幅に変化した場合
@@ -239,7 +241,7 @@ export class SessionWatcher extends EventEmitter {
       } else if (stats.size > lastPosition) {
         // 新しいデータを読み込む（増分読み込み）
         const stream = fs.createReadStream(filePath, {
-          start: lastPosition,
+          start: Math.max(0, lastPosition),
           encoding: 'utf-8'
         });
 
@@ -276,46 +278,52 @@ export class SessionWatcher extends EventEmitter {
   }
 
   processMessage(sessionData, data) {
-    // /compact検出
+    // Detect /compact
     if (data.message?.content?.includes('[Previous conversation summary') || 
         data.message?.content?.includes('Previous conversation compacted')) {
       sessionData.isCompacted = true;
     }
     
-    // タイムスタンプの記録
+
     if (!sessionData.startTime && data.timestamp) {
       sessionData.startTime = new Date(data.timestamp);
     }
 
-    // モデル情報の抽出（最新のものを優先、ただし既存の情報を保持）
+
     if (data.message?.model) {
       sessionData.model = data.message.model;
     }
 
-    // usage情報の抽出と集計
+
     if (data.message?.usage) {
       const usage = data.message.usage;
       const inputTokens = usage.input_tokens || 0;
       const outputTokens = usage.output_tokens || 0;
-      const cacheTokens = usage.cache_read_input_tokens || 0;
+      const cacheReadTokens = usage.cache_read_input_tokens || 0;
+      const cacheCreationTokens = usage.cache_creation_input_tokens || 0;
       
-      sessionData.totalTokens += inputTokens + outputTokens;
+      // Total tokens include all token types for context window calculation
+      sessionData.totalTokens = cacheReadTokens + inputTokens + outputTokens + cacheCreationTokens;
       
-      // ターン数のカウント（assistantメッセージでカウント）
+      // Store cache tokens separately
+      sessionData.totalCacheTokens = cacheReadTokens;
+      
+
       if (data.message?.role === 'assistant') {
         sessionData.turns++;
       }
 
-      // 最新のusage情報を保存
+      // Store latest usage
       sessionData.latestUsage = {
         input: inputTokens,
         output: outputTokens,
-        cache: cacheTokens,
+        cache: cacheReadTokens,
+        cacheCreation: cacheCreationTokens,
         timestamp: data.timestamp
       };
     }
 
-    // 最新のユーザープロンプトを保存
+    // Store latest user prompt
     if (data.message?.role === 'user' && data.message?.content) {
       const content = Array.isArray(data.message.content) 
         ? data.message.content.find(c => c.type === 'text')?.text || ''

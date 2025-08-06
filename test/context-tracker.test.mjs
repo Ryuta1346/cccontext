@@ -92,6 +92,7 @@ describe('ContextTracker', () => {
     
     expect(tracker.getContextWindow('claude-3-opus-20241022')).toBe(200_000);
     expect(tracker.getContextWindow('claude-opus-4-20250514')).toBe(200_000);
+    expect(tracker.getContextWindow('claude-opus-4-1-20250805')).toBe(200_000);
     expect(tracker.getContextWindow('claude-3-5-sonnet-20241022')).toBe(200_000);
     expect(tracker.getContextWindow('claude-2.0')).toBe(100_000);
     expect(tracker.getContextWindow('claude-instant-1.2')).toBe(100_000);
@@ -183,13 +184,11 @@ describe('ContextTracker', () => {
 
     const result = tracker.updateSession(sessionData);
     
-    expect(result.latestTurn).toEqual({
-      input: 1000,
-      output: 2000,
-      cache: 500,
-      total: 3000,
-      percentage: 1.5
-    });
+    expect(result.latestTurn.input).toBe(1000);
+    expect(result.latestTurn.output).toBe(2000);
+    expect(result.latestTurn.cache).toBe(500);
+    expect(result.latestTurn.total).toBe(3000);  // 1000 + 2000 (cache not included)
+    expect(result.latestTurn.percentage).toBeCloseTo(1.5, 5);  // 3000 / 200000 * 100
   });
 
   it('should format context info correctly', () => {
@@ -385,6 +384,7 @@ describe('ContextTracker', () => {
     it('should have correct context window sizes', () => {
       expect(CONTEXT_WINDOWS['claude-3-opus-20241022']).toBe(200_000);
       expect(CONTEXT_WINDOWS['claude-opus-4-20250514']).toBe(200_000);
+      expect(CONTEXT_WINDOWS['claude-opus-4-1-20250805']).toBe(200_000);
       expect(CONTEXT_WINDOWS['claude-3-5-sonnet-20241022']).toBe(200_000);
       expect(CONTEXT_WINDOWS['claude-3-5-haiku-20241022']).toBe(200_000);
       expect(CONTEXT_WINDOWS['claude-3-haiku-20240307']).toBe(200_000);

@@ -1,20 +1,39 @@
 # CCContext - Claude Code Context Monitor
 
-リアルタイムでClaude Codeのコンテキスト使用量を監視するツールです。ccusageと同様に、Claude Codeとは独立して動作し、JSONLログファイルを監視してセッションごとのトークン使用量とコストを表示します。
+> 📖 **Read in other languages**: [日本語](./README.ja.md) | [中文](./README.zh.md) | [한국어](./README.ko.md) | [Español](./README.es.md)
 
-## 特徴
+A real-time context usage monitor for Claude Code. It operates independently from Claude Code and displays token usage and costs for each session by monitoring JSONL log files.
 
-- 🔍 **リアルタイム監視**: Claude Codeの実行中にコンテキスト使用量をライブで追跡
-- 📊 **セッション別管理**: 各セッションのトークン使用量、コスト、残量を個別に表示
-- ⚠️ **警告機能**: コンテキスト使用量が80%、90%、95%に達すると警告
-- 💰 **コスト計算**: モデル別の料金でリアルタイムにコストを計算
-- 🎯 **非侵入的**: Claude Code本体に影響を与えず、JSONLログを読み取るだけ
+## Purpose
 
-## インストール
+CCContext empowers Claude Code users to maximize their AI assistant's potential by providing real-time visibility into context consumption. By operating independently from Claude Code, it offers a non-intrusive way to prevent unexpected context exhaustion and maintain continuous, high-quality AI interactions.
 
-### npxで直接実行（推奨）
+**Core Value Propositions:**
+- 🚀 **Prevent Work Interruptions**: Proactively monitor context usage to avoid unexpected Auto-Compact triggers that could disrupt your workflow
+- 💡 **Optimize AI Performance**: Maintain Claude's response quality by managing context effectively and knowing when to start new sessions
+- 💰 **Control Costs**: Track token consumption and costs in real-time, including cache token utilization for cost optimization
+- 🎯 **Predictive Insights**: Accurately forecast Auto-Compact activation timing through sophisticated usage pattern analysis
+- 🔄 **Session Intelligence**: Manage multiple concurrent sessions efficiently with individual tracking and live monitoring
 
-インストール不要で直接実行できます：
+## Important Notes
+
+- **About Calculations**: Token usage, costs, Auto-Compact activation timing, and other calculation results displayed by this tool are reference values calculated independently by cccontext. They may not necessarily match the calculation results of Claude Code itself.
+- **About Implementation**: Almost all code in this tool was implemented by Claude Code.
+
+## Features
+
+- 🔍 **Real-time Monitoring**: Live tracking of context usage during Claude Code execution
+- 📊 **Session-by-Session Management**: Individual display of token usage, costs, and remaining capacity for each session
+- ⚠️ **Warning System**: Alerts at multiple context usage thresholds
+- 💰 **Cost Calculation**: Real-time cost calculation based on model-specific pricing
+- 🎯 **Non-intrusive**: Does not affect Claude Code itself, only reads JSONL logs
+- 🤖 **Auto-Compact Tracking**: Display remaining capacity until Claude Code Auto-Compact activation
+
+## Installation
+
+### Direct execution with npx (Recommended)
+
+Execute directly without installation:
 
 ```bash
 npx cccontext
@@ -22,173 +41,175 @@ npx cccontext sessions
 npx cccontext monitor --live
 ```
 
-### グローバルインストール
+### Global Installation
 
 ```bash
+# Using pnpm
+pnpm add -g cccontext
+
+# Using npm
 npm install -g cccontext
+
+# Execute
 cccontext sessions
 ```
 
-### ローカル開発
+## Usage
+
+### Real-time Monitoring
+
+Automatically detect and monitor the latest active session:
 
 ```bash
-git clone https://github.com/yourusername/cccontext.git
-cd cccontext
-npm install
-npm link  # グローバルにリンク
+npx cccontext
 ```
 
-## 使用方法
+### Session Selection
 
-### リアルタイム監視
-
-最新のアクティブセッションを自動検出して監視：
+Select from session list by number for monitoring:
 
 ```bash
-cccontext
-# または
-cccontext monitor
-cccontext monitor --live
+# Display session list for selection
+npx cccontext --list
+
+# Direct specification by number (e.g., 2nd session)
+npx cccontext --session 2
 ```
 
-特定のセッションを監視：
+### Session List
+
+Display recent sessions:
 
 ```bash
-cccontext monitor --session <session-id>
+npx cccontext sessions
+npx cccontext sessions --limit 20  # Display 20 sessions
+npx cccontext sessions --live      # Live view mode
 ```
 
-### セッション一覧
+### Monitor Command
 
-最近のセッションを表示：
+Monitor specific sessions:
 
 ```bash
-cccontext sessions
-cccontext sessions --limit 20  # 20件表示
-cccontext sessions --live      # ライブビューモード
+npx cccontext monitor
+npx cccontext monitor --session 2  # Monitor 2nd session
 ```
 
-## コマンドラインオプション
+### Other Options
 
-### `cccontext` （デフォルト）
-最新のアクティブセッションをリアルタイム監視します。
+```bash
+# Clear session cache
+npx cccontext sessions --clear-cache
+
+# Debug mode
+npx cccontext sessions --debug
+```
+
+## Command Line Options
+
+### `cccontext` (Default)
+Monitors the latest active session in real-time.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--list` | Display session list for selection | false |
+| `--session <number>` | Direct specification by session number | - |
+| `--version` | Display version information | - |
+| `--help` | Display help | - |
 
 ### `cccontext monitor`
-Claude Codeのコンテキスト使用量を監視します。
+Monitor Claude Code context usage.
 
-| オプション | 説明 | デフォルト |
-|------------|------|------------|
-| `-l, --live` | ライブ監視モード | true |
-| `-s, --session <id>` | 特定のセッションIDを監視 | - |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--live` | Live monitoring mode | true |
+| `--session <number>` | Specify specific session by number | - |
 
 ### `cccontext sessions`
-最近のClaude Codeセッションを一覧表示します。
+List recent Claude Code sessions.
 
-| オプション | 説明 | デフォルト |
-|------------|------|------------|
-| `-l, --limit <number>` | 表示するセッション数 | 10 |
-| `--live` | ライブビューモード（自動更新） | false |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--limit <number>` | Number of sessions to display | 10 |
+| `--live` | Live view mode (auto-refresh) | false |
+| `--clear-cache` | Clear session cache | false |
+| `--debug` | Debug mode | false |
 
-## 表示例
+Auto-Compact Display:
+- `until 65.0%`: Normal - ample margin until Auto-Compact activation
+- `until 45.0%`: Normal - 45% margin until Auto-Compact activation
+- `⚠until 15.0%`: Warning - 15% until Auto-Compact activation
+- `!until 5.0%`: Danger - Auto-Compact activation imminent
+- `ACTIVE`: Auto-Compact active
 
-### ライブモニター
+## About Auto-Compact Monitoring
 
+Claude Code automatically executes Auto-Compact when context window usage reaches a certain threshold, compressing the conversation. CCContext uses calculation methods aligned with actual Claude Code behavior to accurately predict Auto-Compact activation timing.
+
+### Calculation Method
+CCContext calculates context usage based on total message count, just like Claude Code. This enables accurate prediction of actual Auto-Compact activation timing.
+
+### Warning Levels
+- **Normal** (Gray): 30% or more margin until Auto-Compact
+- **Notice** (Blue): 15-30% until Auto-Compact
+- **Warning** (Yellow): 5-15% until Auto-Compact
+- **Danger** (Red): Less than 5% until Auto-Compact
+- **Active** (Red/Emphasized): Auto-Compact activated
+
+### Display Examples
 ```
-╭─ Claude Code Context Monitor ─────────────────────────╮
-│ Real-time context usage tracking for Claude Code      │
-╰───────────────────────────────────────────────────────╯
+# When there's sufficient margin
+Auto-compact: at 92% (until 65.0%)
 
-┌ Session Info ─────────────────────────────────────────┐
-│                                                       │
-│ Session: 4ffe7e4f-5d3e-4b...                        │
-│ Model: Claude Opus 4                                  │
-│ Started: 15m ago                                      │
-└───────────────────────────────────────────────────────┘
+# Warning level
+Auto-compact: at 92% (⚠until 8.5%)
 
-┌ Context Usage ────────────────────────────────────────┐
-│                                                       │
-│ ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░ 30% (60k/200k)│
-│                                                       │
-│ Remaining: 140k tokens (70.0%)                        │
-│                                                       │
-└───────────────────────────────────────────────────────┘
+# Danger level
+Auto-compact: at 92% (!until 2.5%)
 
-┌ Latest Turn ──────────────────────────────────────────┐
-│                                                       │
-│ Input:  2.5k tokens                                   │
-│ Output: 1.8k tokens                                   │
-│ Cache:  5.2k tokens (read)                           │
-│ Total:  4.3k tokens (2.15% of window)                │
-└───────────────────────────────────────────────────────┘
-
-┌ Session Totals ───────────────────────────────────────┐
-│                                                       │
-│ Turns: 15                                             │
-│ Total Tokens: 60k                                     │
-│ Cost: $1.23                                          │
-│ Avg/Turn: 4k                                         │
-│ Est. Remaining Turns: 35                              │
-└───────────────────────────────────────────────────────┘
-
-[Live] Watching for updates... (q to exit, r to refresh)
+# Active
+AUTO-COMPACT ACTIVE
 ```
 
-### セッション一覧
-
-```
-Active Sessions (Last 24h)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 1. 4ffe7e4f [███░░░░░░░] 30.0% | Claude Opus 4 | 15 turns | 15m ago
- 2. 7963885d [█████░░░░░] 50.0% | Claude Opus 4 | 75 turns | 2h ago
- 3. fb512f58 [████████░░] 80.0% | Claude Opus 4 | 146 turns | 5h ago
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Total sessions: 3
-```
-
-## 仕組み
-
-1. Claude Codeは `~/.claude/projects/` にJSONL形式でセッションログを保存します
-2. Gavrriはこれらのファイルを監視し、新しいメッセージが追加されるとリアルタイムで解析します
-3. トークン使用量、コスト、コンテキスト使用率を計算して表示します
-4. Claude Code本体には一切触れず、完全に独立して動作します
-
-## 対応モデル
+## Supported Models
 
 - Claude 3 Opus
 - Claude Opus 4
+- Claude Opus 4.1 (Released August 2025)
+- Claude Sonnet 4 (Released May 2025)
 - Claude 3.5 Sonnet
 - Claude 3.5 Haiku
 - Claude 3 Haiku
 
-## その他の情報
+## Additional Information
 
-### バージョン確認
+### Version Check
 
 ```bash
 cccontext --version
 ```
 
-### ヘルプ
+### Help
 
 ```bash
 cccontext --help
-cccontext monitor --help
 cccontext sessions --help
 ```
 
-### 必要な権限
+### Required Permissions
 
-- `~/.claude/projects/` ディレクトリへの読み取りアクセス
-- JSONLファイルの読み取り権限
+- Read access to `~/.claude/projects/` directory
+- JSONL file read permissions
 
-### システム要件
+### System Requirements
 
-- Node.js 18.0.0 以上
-- macOS, Linux, Windows対応
+- Node.js 18.0.0 or higher
+- macOS, Linux, Windows support
 
-## ライセンス
+## License
 
 MIT
 
-## 謝辞
+## Acknowledgments
 
-このプロジェクトは[ccusage](https://github.com/ryoppippi/ccusage)のコンセプトに大きく影響を受けています。
+This project is greatly influenced by the concept of [ccusage](https://github.com/ryoppippi/ccusage).

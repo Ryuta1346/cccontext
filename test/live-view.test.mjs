@@ -177,10 +177,15 @@ describe('LiveView', () => {
     });
 
     it('should format session info correctly', () => {
+      // Calculate startTime for 1h 30m ago
+      const now = Date.now();
+      const duration = (1 * 60 + 30) * 60 * 1000; // 1h 30m in milliseconds
+      const startTime = new Date(now - duration);
+      
       const info = {
         sessionId: 'abcdef1234567890abcdef',
         modelName: 'Claude 3.5 Sonnet',
-        duration: '1h 30m'
+        startTime: startTime
       };
       
       const formatted = view.formatSessionInfo(info);

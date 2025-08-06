@@ -91,10 +91,15 @@ describe('LiveView', () => {
 
   describe('formatSessionInfo', () => {
     it('should format session info correctly', () => {
+      // Calculate startTime for 5m ago
+      const now = Date.now();
+      const duration = 5 * 60 * 1000; // 5m in milliseconds
+      const startTime = new Date(now - duration);
+      
       const info = {
         sessionId: '1234567890abcdef1234567890abcdef',
         modelName: 'Claude 3.5 Sonnet',
-        duration: '5m'
+        startTime: startTime
       };
       
       const formatted = liveView.formatSessionInfo(info);

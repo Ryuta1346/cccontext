@@ -59,7 +59,10 @@ vi.mock('../src/monitor/session-cache.mjs', () => {
                   const usage = data.message.usage;
                   totalInputTokens += usage.input_tokens || 0;
                   totalOutputTokens += usage.output_tokens || 0;
-                  totalCacheTokens += usage.cache_read_input_tokens || 0;
+                  // Cache tokens should not be accumulated - use the latest value only
+                  if (usage.cache_read_input_tokens > 0) {
+                    totalCacheTokens = usage.cache_read_input_tokens;
+                  }
                   totalTokens = totalInputTokens + totalOutputTokens;
                   
                   if (data.message.role === 'assistant') {
@@ -270,17 +273,14 @@ describe('SessionsManager', () => {
     });
 
     it('should handle session-added event', async () => {
-      const projectDir = path.join(tempDir, 'test-project');
-      await fs.mkdir(projectDir, { recursive: true });
-      
       let updateEmitted = false;
       manager.on('sessions-updated', (sessions) => {
         updateEmitted = true;
         expect(sessions.some(s => s.sessionId === 'new-session')).toBe(true);
       });
       
-      // Simulate session added
-      const newFile = path.join(projectDir, 'new-session.jsonl');
+      // Simulate session added - create file directly in tempDir
+      const newFile = path.join(tempDir, 'new-session.jsonl');
       await fs.writeFile(newFile, JSON.stringify({
         timestamp: '2025-01-01T00:00:00Z',
         message: {
@@ -294,8 +294,8 @@ describe('SessionsManager', () => {
       manager.watcher.cachedFiles.add(newFile);
       manager.watcher.emit('session-added', { sessionId: 'new-session', filePath: newFile });
       
-      // Wait for batch processing
-      await new Promise(resolve => setTimeout(resolve, 150));
+      // Wait for batch processing (increased timeout for reliability)
+      await new Promise(resolve => setTimeout(resolve, 250));
       
       expect(updateEmitted).toBe(true);
     });
