@@ -324,9 +324,7 @@ Started: ${chalk.gray(duration)} ago`;
 
       if (ac.remainingPercentage > 0) {
         const colorFunc = getChalkColorFunction(acColor);
-        autoCompactInfo = `\nLeft until Auto-compact: ${colorFunc(
-          `${ac.remainingPercentage.toFixed(1)}%`
-        )}`;
+        autoCompactInfo = `\nLeft until Auto-compact: ${colorFunc(`${ac.remainingPercentage.toFixed(1)}%`)}`;
       } else {
         autoCompactInfo = `\n${chalk.red.bold("AUTO-COMPACT ACTIVE")}`;
       }
@@ -334,11 +332,11 @@ Started: ${chalk.gray(duration)} ago`;
 
     return `
 ${bar} ${getChalkColorFunction(color)(`${percentage}%`)} (${this.formatTokens(
-      info.totalTokens
+      info.totalTokens,
     )}/${this.formatTokens(info.contextWindow)})
 
 Remaining: ${chalk.green(
-      this.formatTokens(info.remainingTokens)
+      this.formatTokens(info.remainingTokens),
     )} tokens (${info.remainingPercentage.toFixed(1)}%)${autoCompactInfo}
 ${this.getWarningMessage(info)}`;
   }
@@ -352,9 +350,7 @@ ${this.getWarningMessage(info)}`;
 Input:  ${chalk.blue(this.formatTokens(turn.input))} tokens
 Output: ${chalk.magenta(this.formatTokens(turn.output))} tokens
 Cache:  ${chalk.gray(this.formatTokens(turn.cache))} tokens (read)
-Total:  ${chalk.yellow(
-      this.formatTokens(turn.total)
-    )} tokens (${turn.percentage.toFixed(2)}% of window)`;
+Total:  ${chalk.yellow(this.formatTokens(turn.total))} tokens (${turn.percentage.toFixed(2)}% of window)`;
   }
 
   private formatLatestPrompt(info: ContextInfo): string {
@@ -376,20 +372,13 @@ Turns: ${chalk.cyan(info.turns)}
 Total Tokens: ${chalk.yellow(this.formatTokens(info.totalTokens))}
 Cost: ${chalk.green(this.formatCost(info.totalCost))}
 Avg/Turn: ${chalk.gray(this.formatTokens(info.averageTokensPerTurn))}
-Est. Remaining Turns: ${chalk.cyan(
-      info.estimatedRemainingTurns === Infinity
-        ? "∞"
-        : info.estimatedRemainingTurns
-    )}`;
+Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? "∞" : info.estimatedRemainingTurns)}`;
   }
 
   private createProgressBar(percentage: number): string {
     const width = 40;
     const safePercentage = Math.max(0, Math.min(100, percentage || 0));
-    const filled = Math.max(
-      0,
-      Math.min(width, Math.round((safePercentage / 100) * width))
-    );
+    const filled = Math.max(0, Math.min(width, Math.round((safePercentage / 100) * width)));
     const empty = Math.max(0, width - filled);
 
     const color = this.getPercentageColor(safePercentage);
@@ -461,9 +450,7 @@ Est. Remaining Turns: ${chalk.cyan(
     return `$${cost.toFixed(2)}`;
   }
 
-  private calculateDuration(
-    startTime: number | string | Date | undefined
-  ): string {
+  private calculateDuration(startTime: number | string | Date | undefined): string {
     if (!startTime) return "Unknown";
 
     const duration = Date.now() - new Date(startTime).getTime();
@@ -512,9 +499,7 @@ Est. Remaining Turns: ${chalk.cyan(
       // 3秒後に元のメッセージに戻す
       setTimeout(() => {
         if (this.boxes.statusBar) {
-          this.boxes.statusBar.setContent(
-            "[Live] Watching for updates... (q to exit, r to refresh)"
-          );
+          this.boxes.statusBar.setContent("[Live] Watching for updates... (q to exit, r to refresh)");
           this.render();
         }
       }, 3000);
