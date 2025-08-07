@@ -59,13 +59,13 @@ export class SessionCache {
       const cached = this.fileStats.get(filePath);
       
       if (!cached) {
-        return true; // 初回は必ず変更ありとする
+        return true; // Always treat first time as changed
       }
       
       return cached.mtimeMs !== stats.mtimeMs || cached.size !== stats.size;
     } catch (error) {
       this.log(`Error checking file stats for ${filePath}: ${(error as Error).message}`);
-      return true; // エラーの場合は変更ありとして処理
+      return true; // Treat error cases as changed for processing
     }
   }
 

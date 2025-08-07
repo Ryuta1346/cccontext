@@ -18,7 +18,7 @@ export class SessionsLiveView {
   public boxes: Partial<Boxes>;
   public sessions: SessionData[];
   private updateInterval: NodeJS.Timeout | null;
-  // private selectedIndex: number; // 選択中の行インデックスを保存
+  // private selectedIndex: number; // Store selected row index
 
   constructor() {
     this.screen = null;
@@ -36,7 +36,7 @@ export class SessionsLiveView {
       title: 'Claude Code Sessions Monitor'
     });
 
-    // メインコンテナ
+    // Main container
     this.boxes.container = blessed.box({
       parent: this.screen,
       top: 0,
@@ -49,7 +49,7 @@ export class SessionsLiveView {
       }
     });
 
-    // ヘッダー
+    // Header
     this.boxes.header = blessed.box({
       parent: this.boxes.container,
       top: 0,
@@ -63,7 +63,7 @@ export class SessionsLiveView {
       }
     });
 
-    // セッションテーブル
+    // Sessions table
     this.boxes.sessionsTable = blessed.listtable({
       parent: this.boxes.container,
       top: 3,
@@ -94,16 +94,16 @@ export class SessionsLiveView {
         }
       },
       tags: false,  // Unicode文字の表示問題を避けるため無効化
-      keys: true,   // キーボードナビゲーションを有効化
+      keys: true,   // Enable keyboard navigation
       vi: false,    // viモードを無効化（これが2行ジャンプの原因）
       mouse: true,
       selectedFg: 'black',
       selectedBg: 'cyan',
-      interactive: true,  // インタラクティブを有効化
+      interactive: true,  // Enable interactivity
       scrollable: true
     });
 
-    // ステータスバー
+    // Status bar
     this.boxes.statusBar = blessed.box({
       parent: this.boxes.container,
       bottom: 0,
@@ -117,7 +117,7 @@ export class SessionsLiveView {
       }
     });
 
-    // サマリー情報
+    // Summary info
     this.boxes.summary = blessed.box({
       parent: this.boxes.container,
       bottom: 1,
@@ -130,7 +130,7 @@ export class SessionsLiveView {
       }
     });
 
-    // キーバインディング
+    // Key bindings
     this.screen.key(['q', 'C-c'], () => {
       this.destroy();
       process.exit(0);
@@ -140,12 +140,12 @@ export class SessionsLiveView {
       this.render();
     });
 
-    // テーブルにフォーカスを設定
+    // Set focus to table
     if (this.boxes.sessionsTable) {
       this.boxes.sessionsTable.focus();
     }
 
-    // テーブルヘッダーの設定
+    // Setup table header
     this.updateTableHeader();
     
     this.screen.render();
@@ -182,15 +182,15 @@ export class SessionsLiveView {
     
     if (!this.screen || !this.boxes.sessionsTable) return;
 
-    // 現在の選択位置を保存
+    // Save current selection position
     // selectedIndexプロパティは内部的に使用される可能性があるが、型定義に含まれていないため
-    // 型安全な方法でアクセス
+    // Type-safe access
     const currentSelected = this.boxes.sessionsTable && 'selectedIndex' in this.boxes.sessionsTable ? 
       (this.boxes.sessionsTable as { selectedIndex?: number }).selectedIndex : undefined;
 
-    // テーブルデータの準備
+    // Prepare table data
     const tableData: string[][] = [
-      // ヘッダー行
+      // Header row
       [
         'No.',
         'Session',
@@ -204,10 +204,10 @@ export class SessionsLiveView {
       ]
     ];
 
-    // セッションデータの追加
+    // Add session data
     sessionsData.forEach((session, index) => {
       const row = [
-        (index + 1).toString(),  // 番号を追加
+        (index + 1).toString(),  // Add number
         session.sessionId.substring(0, 8),
         this.formatUsage(session.usagePercentage || 0),
         this.formatAutoCompact(session.autoCompact),
@@ -220,15 +220,15 @@ export class SessionsLiveView {
       tableData.push(row);
     });
 
-    // テーブル更新
+    // Update table
     this.boxes.sessionsTable.setData(tableData);
 
-    // 選択位置を復元（範囲外にならないようチェック）
+    // Restore selection position (check to prevent out of range)
     if (currentSelected != null && currentSelected > 0 && currentSelected < tableData.length) {
       this.boxes.sessionsTable.select(currentSelected);
     }
 
-    // サマリー情報の更新
+    // Update summary info
     this.updateSummary(sessionsData);
 
     this.render();
@@ -242,7 +242,7 @@ export class SessionsLiveView {
     const filled = Math.max(0, Math.min(width, Math.round((safePercentage / 100) * width)));
     const empty = Math.max(0, width - filled);
     
-    // 通常のsessionsコマンドと同じ形式でプログレスバーを作成
+    // Create progress bar in same format as regular sessions command
     const bar = '█'.repeat(filled) + '░'.repeat(empty);
     
     const percentStr = safePercentage.toFixed(1) + '%';
@@ -275,15 +275,15 @@ export class SessionsLiveView {
 
     const { remainingPercentage } = autoCompact;
     
-    // 実際に残りパーセンテージが0以下の場合のみACTIVE表示
+    // Show ACTIVE only when remaining percentage is actually 0 or below
     if (remainingPercentage <= 0) {
       return 'ACTIVE!';
     }
     
-    // 残り容量を % で表示（willTriggerフラグは無視）
+    // Display remaining capacity in % (ignore willTrigger flag)
     const percentStr = remainingPercentage.toFixed(1) + '%';
     
-    // 閾値に基づいた警告表示
+    // Warning display based on thresholds
     if (remainingPercentage <= 10) {
       return `!${percentStr}`;
     } else if (remainingPercentage <= 20) {
@@ -296,10 +296,10 @@ export class SessionsLiveView {
   private truncatePrompt(prompt: string | undefined, maxLength: number): string {
     if (!prompt) return 'No prompt yet';
     
-    // デバッグ: プロンプトの内容を確認
+    // Debug: Check prompt content
     // console.error('DEBUG: Original prompt:', prompt);
     
-    // 改行や連続する空白を単一スペースに置換
+    // Replace line breaks and consecutive spaces with single space
     const cleanPrompt = prompt.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     
     // string-widthを使用して正確な表示幅を計算

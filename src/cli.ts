@@ -117,19 +117,19 @@ class CCContextCLI {
   async monitorLive(options: CLIOptions): Promise<void> {
     console.log(chalk.cyan('🔍 Starting Claude Code Context Monitor...'));
     
-    // ライブビューの初期化
+    // Initialize live view
     this.view = new LiveView();
     this.view.init();
 
     try {
       let sessionToMonitor: ActiveSession | null;
       
-      // セッションの選択処理
+      // Session selection processing
       if (options.session) {
-        // 指定されたセッションIDまたは順番号を解決
+        // Resolve specified session ID or sequence number
         const resolvedSessionId = await this.resolveSessionIdentifier(options.session);
         
-        // セッションファイルを検索
+        // Search for session file
         const files = await this.watcher.getAllJsonlFiles();
         const sessionFile = files.find(f => path.basename(f, '.jsonl') === resolvedSessionId);
         
@@ -144,7 +144,7 @@ class CCContextCLI {
           filePath: sessionFile
         };
       } else {
-        // アクティブセッションを検索
+        // Search for active session
         sessionToMonitor = await this.watcher.findActiveSession();
         
         if (!sessionToMonitor) {
@@ -157,7 +157,7 @@ class CCContextCLI {
       console.log(chalk.green(`✓ Found session: ${sessionToMonitor.sessionId}`));
       this.view.showMessage(`Monitoring session: ${sessionToMonitor.sessionId.substring(0, 8)}...`);
 
-      // イベントハンドラーの設定
+      // Setup event handlers
       this.watcher.on('session-data', (sessionData: SessionData) => {
         const contextInfo = this.tracker.updateSession(sessionData);
         if (this.view) {
@@ -178,10 +178,10 @@ class CCContextCLI {
         }
       });
 
-      // セッション監視開始
+      // Start session monitoring
       await this.watcher.watchSession(sessionToMonitor.sessionId, sessionToMonitor.filePath);
 
-      // プロセス終了時のクリーンアップ
+      // Cleanup on process exit
       process.on('SIGINT', () => this.cleanup());
       process.on('SIGTERM', () => this.cleanup());
 
@@ -195,7 +195,7 @@ class CCContextCLI {
   async showSessions(options: CLIOptions): Promise<void> {
     console.log(chalk.cyan('🔍 Loading Claude Code Sessions...'));
     
-    // ライブビューの初期化
+    // Initialize live view
     this.sessionsView = new SessionsLiveView();
     this.sessionsView.init();
 
@@ -203,7 +203,7 @@ class CCContextCLI {
       const files = await this.watcher.getAllJsonlFiles();
       const sessions: SessionWithContext[] = [];
 
-      // 各セッションファイルの情報を収集
+      // Collect information for each session file
       for (const file of files) {
         const sessionId = path.basename(file, '.jsonl');
         const stats = await fs.promises.stat(file);
@@ -239,21 +239,21 @@ class CCContextCLI {
         }
       }
 
-      // 最終更新時刻でソート
+      // Sort by last update time
       sessions.sort((a, b) => {
         const aTime = a.lastModified instanceof Date ? a.lastModified.getTime() : a.lastModified;
         const bTime = b.lastModified instanceof Date ? b.lastModified.getTime() : b.lastModified;
         return bTime - aTime;
       });
 
-      // 表示数を制限
+      // Limit number of displayed items
       const limit = parseInt(String(options.limit || 10));
       const displaySessions = sessions.slice(0, limit);
 
       // SessionsLiveViewで表示
       this.sessionsView.updateSessions(displaySessions);
       
-      // プロセス終了時のクリーンアップ
+      // Cleanup on process exit
       process.on('SIGINT', () => {
         if (this.sessionsView) {
           this.sessionsView.destroy();
@@ -267,9 +267,9 @@ class CCContextCLI {
         process.exit(0);
       });
 
-      // キーイベントの待機
+      // Wait for key events
       await new Promise<void>(() => {
-        // プロミスは解決されない（ユーザーがqまたはCtrl+Cで終了するまで待機）
+        // Promise never resolves (wait until user presses q or Ctrl+C)
       });
 
     } catch (error) {
@@ -373,7 +373,7 @@ class CCContextCLI {
   // }
 
   async resolveSessionIdentifier(identifier: string): Promise<string> {
-    // 数値のみ受け付ける
+    // Accept only numeric values
     if (!/^\d+$/.test(identifier)) {
       throw new Error(`Invalid session number: ${identifier}. Please specify a number from the list.`);
     }
@@ -381,7 +381,7 @@ class CCContextCLI {
     const position = parseInt(identifier);
     const files = await this.watcher.getAllJsonlFiles();
     
-    // ファイルを最終更新時刻でソート
+    // Sort files by last update time
     const sortedFiles = await this.getSortedFilesByMtime(files);
     
     if (position > 0 && position <= sortedFiles.length) {
@@ -398,12 +398,12 @@ class CCContextCLI {
       const sessions: SessionForList[] = [];
       const limit = parseInt(String(options.limit || 20));
 
-      // 各セッションファイルの情報を収集
+      // Collect information for each session file
       for (const file of files) {
         const sessionId = path.basename(file, '.jsonl');
         const stats = await fs.promises.stat(file);
         
-        // セッションデータを読み込む
+        // Load session data
         const tempWatcher = new SessionWatcher();
         
         let sessionData: SessionData | null = null;
@@ -427,7 +427,7 @@ class CCContextCLI {
         }
       }
 
-      // 最終更新時刻でソート（降順）
+      // Sort by last update time（降順）
       sessions.sort((a, b) => {
         const aTime = a.lastModified instanceof Date ? a.lastModified.getTime() : a.lastModified;
         const bTime = b.lastModified instanceof Date ? b.lastModified.getTime() : b.lastModified;
@@ -442,7 +442,7 @@ class CCContextCLI {
       console.log(chalk.cyan('\nActive Sessions'));
       console.log(chalk.gray('━'.repeat(100)));
       
-      // ヘッダー行
+      // Header row
       console.log(
         chalk.gray('No.') + '  ' +
         chalk.gray('Session ID') + '  ' +
@@ -454,7 +454,7 @@ class CCContextCLI {
       );
       console.log(chalk.gray('━'.repeat(100)));
 
-      // 表示数を制限
+      // Limit number of displayed items
       const displaySessions = sessions.slice(0, limit);
 
       displaySessions.forEach((session, index) => {
@@ -464,26 +464,26 @@ class CCContextCLI {
         const usage = (session.totalTokens / contextWindow) * 100;
         const formattedPrompt = session.latestPrompt ? this.formatPromptForList(session.latestPrompt) : '';
         
-        // 番号（3文字）
+        // Number (3 characters)
         const num = chalk.yellow((index + 1).toString().padEnd(3));
         
-        // セッションID（10文字）
+        // Session ID (10 characters)
         const sessionId = chalk.white(session.sessionId.substring(0, 8).padEnd(10));
         
-        // 使用率とプログレスバー（15文字）
+        // Usage rate and progress bar (15 characters)
         const progressBar = this.createMiniProgressBar(usage);
         const usageStr = `[${progressBar}] ${chalk.cyan(usage.toFixed(1).padStart(5) + '%')}`;
         
-        // モデル名（15文字）
+        // Model name (15 characters)
         const model = chalk.blue(modelName.padEnd(15));
         
-        // ターン数（7文字）
+        // Turn count (7 characters)
         const turns = chalk.green((session.turns + ' turns').padEnd(7));
         
-        // 経過時間（8文字）
+        // Elapsed time (8 characters)
         const ageStr = chalk.magenta(age.padEnd(8));
         
-        // 最新プロンプト
+        // Latest prompt
         const prompt = chalk.dim(formattedPrompt);
         
         console.log(`${num} ${sessionId} ${usageStr} ${model} ${turns} ${ageStr} ${prompt}`);
@@ -522,31 +522,31 @@ class CCContextCLI {
   async showSessionsLive(options: CLIOptions): Promise<void> {
     console.log(chalk.cyan('🔍 Starting Claude Code Sessions Monitor...'));
     
-    // ライブビューの初期化
+    // Initialize live view
     this.sessionsView = new SessionsLiveView();
     this.sessionsView.init();
 
     try {
-      // 全セッションファイルを取得
+      // Get all session files
       const files = await this.watcher.getAllJsonlFiles();
       const limit = parseInt(String(options.limit));
       
-      // 最新のファイルから順に処理
+      // Process from newest files first
       const sortedFiles = await this.getSortedFilesByMtime(files);
       const filesToWatch = sortedFiles.slice(0, limit);
       
-      // 初期セッションリスト
+      // Initial session list
       const sessions: SessionWithContext[] = [];
       
-      // 各セッションに対してwatchSessionを開始
+      // Start watchSession for each session
       for (const file of filesToWatch) {
         const sessionId = path.basename(file, '.jsonl');
         const stats = await fs.promises.stat(file);
         
-        // 個別のSessionWatcherインスタンスを作成
+        // Create individual SessionWatcher instance
         const sessionWatcher = new SessionWatcher();
         
-        // イベントハンドラー設定
+        // Setup event handlers
         sessionWatcher.on('session-data', (sessionData: SessionData) => {
           const contextInfo = this.tracker.updateSession(sessionData);
           this.updateSessionInView(sessionId, sessionData, contextInfo, stats.mtime);
@@ -567,7 +567,7 @@ class CCContextCLI {
         await sessionWatcher.watchSession(sessionId, file);
         this.watchedSessions.set(sessionId, sessionWatcher);
         
-        // 初期データを取得してセッションリストに追加
+        // Get initial data and add to session list
         const sessionData = sessionWatcher.getSessionData(sessionId);
         if (sessionData) {
           const contextInfo = this.tracker.updateSession(sessionData);
@@ -588,12 +588,12 @@ class CCContextCLI {
         }
       }
       
-      // 初期表示
+      // Initial display
       if (this.sessionsView) {
         this.sessionsView.updateSessions(sessions);
       }
       
-      // ディレクトリ監視（新規セッション追加/削除用）
+      // Directory monitoring (for adding/removing new sessions)
       await this.watcher.startDirectoryWatch();
       
       this.watcher.on('session-added', async ({ sessionId, filePath }: { sessionId: string; filePath: string }) => {
@@ -604,7 +604,7 @@ class CCContextCLI {
         this.removeSessionWatch(sessionId);
       });
       
-      // プロセス終了時のクリーンアップ
+      // Cleanup on process exit
       process.on('SIGINT', () => this.cleanup());
       process.on('SIGTERM', () => this.cleanup());
 
@@ -618,7 +618,7 @@ class CCContextCLI {
   async showSessionsLiveEnhanced(options: CLIOptions): Promise<void> {
     console.log(chalk.cyan('🔍 Starting Enhanced Claude Code Sessions Monitor...'));
     
-    // デバッグモードの設定
+    // Setup debug mode
     const debugMode = process.env.DEBUG === '1' || options.debug;
     this.sessionsManager.setDebugMode(debugMode || false);
     
@@ -626,13 +626,13 @@ class CCContextCLI {
       console.log(chalk.yellow('🐛 Debug mode enabled'));
     }
     
-    // ライブビューの初期化
+    // Initialize live view
     this.sessionsView = new SessionsLiveView();
     this.sessionsView.init();
     
     try {
-      // イベントリスナーを先に設定
-      // セッション読み込み完了イベント
+      // Setup event listeners first
+      // Session loading completed event
       this.sessionsManager.on('sessions-loaded', (sessions: SessionWithContext[]) => {
         if (debugMode) {
           console.error(`[CLI] Sessions loaded event received: ${sessions.length} sessions`);
@@ -654,7 +654,7 @@ class CCContextCLI {
         }
       });
       
-      // セッション更新イベント（リアルタイム）
+      // Session update event (real-time)
       this.sessionsManager.on('sessions-updated', (sessions: SessionWithContext[]) => {
         const limit = parseInt(String(options.limit || 20));
         const displaySessions = sessions.slice(0, limit);
@@ -668,10 +668,10 @@ class CCContextCLI {
         }
       });
       
-      // 拡張セッションマネージャーを初期化（イベントリスナー設定後）
+      // Initialize enhanced session manager (after event listener setup)
       await this.sessionsManager.initialize();
       
-      // プロセス終了時のクリーンアップ
+      // Cleanup on process exit
       const cleanup = () => {
         console.log(chalk.cyan('\n🔄 Shutting down sessions monitor...'));
         this.cleanup();
@@ -680,7 +680,7 @@ class CCContextCLI {
       process.on('SIGINT', cleanup);
       process.on('SIGTERM', cleanup);
       
-      // ステータスバーを更新してイベント駆動を表示
+      // Update status bar to show event-driven operation
       this.updateStatusBarForEventDriven();
       
     } catch (error) {
@@ -716,11 +716,11 @@ class CCContextCLI {
   }
 
   private updateSessionInView(sessionId: string, sessionData: SessionData, contextInfo: ContextInfo, lastModified: Date | number): void {
-    // 現在の表示セッションリストを取得
+    // Get current displayed session list
     const currentSessions = this.sessionsView && 'sessions' in this.sessionsView ? 
       (this.sessionsView as { sessions: SessionWithContext[] }).sessions : [];
     
-    // 該当セッションを更新
+    // Update corresponding session
     const updatedSessions = currentSessions.map((session: SessionWithContext) => {
       if (session.sessionId === sessionId) {
         return {
@@ -739,13 +739,13 @@ class CCContextCLI {
       return session;
     });
     
-    // セッションが存在しない場合は追加
+    // Add session if it doesn't exist
     if (!updatedSessions.find((s: SessionWithContext) => s.sessionId === sessionId)) {
-      // 新規セッションの場合、file と size が不明なためデフォルト値を設定
+      // For new sessions, file and size are unknown so set default values
       updatedSessions.push({
         sessionId,
-        file: '', // ファイルパス不明
-        size: 0,  // ファイルサイズ不明
+        file: '', // File path unknown
+        size: 0,  // File size unknown
         model: sessionData.model,
         modelName: contextInfo.modelName,
         turns: sessionData.turns,
@@ -758,7 +758,7 @@ class CCContextCLI {
       });
     }
     
-    // ソートして表示更新
+    // Sort and update display
     updatedSessions.sort((a: SessionWithContext, b: SessionWithContext) => {
       const aTime = a.lastModified instanceof Date ? a.lastModified.getTime() : a.lastModified;
       const bTime = b.lastModified instanceof Date ? b.lastModified.getTime() : b.lastModified;
@@ -800,7 +800,7 @@ class CCContextCLI {
       watcher.stopWatching(sessionId);
       this.watchedSessions.delete(sessionId);
       
-      // ビューからも削除
+      // Remove from view as well
       const currentSessions = this.sessionsView && 'sessions' in this.sessionsView ? 
       (this.sessionsView as { sessions: SessionWithContext[] }).sessions : [];
       const updatedSessions = currentSessions.filter((s: SessionWithContext) => s.sessionId !== sessionId);
@@ -811,7 +811,7 @@ class CCContextCLI {
   }
 
   cleanup(): void {
-    // 全ての個別セッション監視を停止
+    // Stop all individual session monitoring
     for (const [sessionId, watcher] of this.watchedSessions) {
       watcher.stopWatching(sessionId);
     }
@@ -865,27 +865,27 @@ program
     if (options.clearCache) {
       cli.clearCache();
     } else if (options.live) {
-      // 一時的に元の実装を使用
+      // Temporarily use original implementation
       cli.showSessionsLive(options);
     } else {
       cli.showSessions(options);
     }
   });
 
-// 未知のコマンドのハンドリング
+// Handle unknown commands
 program.on('command:*', function (operands: string[]) {
   console.error(`error: unknown command '${operands[0]}'`);
   process.exit(1);
 });
 
-// デフォルトコマンド（引数なしで実行された場合）
+// Default command (when executed without arguments)
 program
   .option('--list', 'List all sessions for selection')
   .option('--session <number>', 'Monitor specific session by number from list')
   .action((options: CLIOptions) => {
-    // コマンドラインの引数をチェック
+    // Check command line arguments
     const args = process.argv.slice(2);
-    // 未知のコマンドが指定されている場合はエラー
+    // Error if unknown command is specified
     if (args.length > 0 && !args[0]!.startsWith('-') && 
         !['monitor', 'sessions'].includes(args[0]!)) {
       console.error(`error: unknown command '${args[0]!}'`);

@@ -29,7 +29,7 @@ interface ErrorEvent {
 }
 
 export class SessionWatcher extends EventEmitter {
-  // メモリ管理用の定数
+  // Memory management constants
   private static readonly MAX_SESSIONS = parseInt(process.env.CCCONTEXT_MAX_SESSIONS || '100', 10);
   private static readonly SESSION_TTL_MS = parseInt(process.env.CCCONTEXT_SESSION_TTL_MS || '3600000', 10); // 1時間
   private static readonly CLEANUP_INTERVAL_MS = parseInt(process.env.CCCONTEXT_CLEANUP_INTERVAL_MS || '600000', 10); // 10分
@@ -42,21 +42,21 @@ export class SessionWatcher extends EventEmitter {
   private cachedFiles: Set<string>;
   private fileMtimes?: Map<string, number>;
   
-  // メモリ管理用の追加プロパティ
+  // Additional properties for memory management
   private lastAccessTime: Map<string, number>;
   private cleanupTimer: NodeJS.Timeout | null;
 
   constructor() {
     super();
     
-    // 環境変数または標準パスを使用（セキュリティ改善）
+    // Use environment variable or standard path (security improvement)
     const baseDir = process.env.CLAUDE_PROJECTS_DIR || 
                    path.join(os.homedir(), '.claude/projects');
     
-    // パス正規化で相対パスや ../ を解決
+    // Resolve relative paths and ../ with path normalization
     this.projectsDir = path.resolve(baseDir);
     
-    // ディレクトリの存在と権限を検証
+    // Validate directory existence and permissions
     this.validateProjectsDir();
     
     this.sessions = new Map();
@@ -67,7 +67,7 @@ export class SessionWatcher extends EventEmitter {
     this.lastAccessTime = new Map();
     this.cleanupTimer = null;
     
-    // 定期クリーンアップタイマーの開始
+    // Start periodic cleanup timer
     this.startCleanupTimer();
   }
 
@@ -83,7 +83,7 @@ export class SessionWatcher extends EventEmitter {
    */
   private startCleanupTimer(): void {
     if (this.cleanupTimer) {
-      return; // 既にタイマーが動作中
+      return; // Timer already running
     }
     
     this.cleanupTimer = setInterval(async () => {
@@ -121,9 +121,9 @@ export class SessionWatcher extends EventEmitter {
       }
     }
     
-    // セッション数が最大値を超えている場合、最も古いものから削除
+    // If session count exceeds maximum, delete oldest ones first
     if (this.sessions.size > SessionWatcher.MAX_SESSIONS) {
-      // アクセス時刻でソート（古い順）
+      // Sort by access time (oldest first)
       const sortedSessions = Array.from(this.lastAccessTime.entries())
         .sort((a, b) => a[1] - b[1]);
       
@@ -136,11 +136,11 @@ export class SessionWatcher extends EventEmitter {
       }
     }
     
-    // セッションを削除
+    // Delete session
     for (const sessionId of sessionsToRemove) {
       this.stopWatching(sessionId);
       
-      // デバッグログ
+      // Debug log
       if (process.env.DEBUG || process.env.SESSION_WATCHER_DEBUG) {
         console.error(`[SessionWatcher] Cleaned up session ${sessionId} (TTL or LRU)`);
       }
@@ -158,11 +158,11 @@ export class SessionWatcher extends EventEmitter {
         throw new Error(`${this.projectsDir} is not a directory`);
       }
       
-      // 読み取り権限のチェック
+      // Check read permissions
       fs.accessSync(this.projectsDir, fs.constants.R_OK);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        // ディレクトリが存在しない場合は警告のみ
+        // Only warn if directory doesn't exist
         console.warn(`Claude projects directory not found: ${this.projectsDir}`);
         console.warn('Sessions monitoring will not be available until the directory is created.');
       } else if ((error as NodeJS.ErrnoException).code === 'EACCES') {
@@ -177,7 +177,7 @@ export class SessionWatcher extends EventEmitter {
     const files = await this.getAllJsonlFiles();
     if (files.length === 0) return null;
 
-    // 最新の更新時刻を持つファイルを検索
+    // Find file with latest update time
     let latestFile: string | null = null;
     let latestTime = 0;
 
@@ -191,13 +191,13 @@ export class SessionWatcher extends EventEmitter {
 
     if (!latestFile) return null;
 
-    // セッションIDを抽出
+    // Extract session ID
     const sessionId = path.basename(latestFile, '.jsonl');
     return { sessionId, filePath: latestFile };
   }
 
   async getAllJsonlFiles(): Promise<string[]> {
-    // キャッシュが存在する場合はキャッシュを返す
+    // Return cache if it exists
     if (this.cachedFiles.size > 0) {
       return Array.from(this.cachedFiles);
     }
@@ -206,10 +206,10 @@ export class SessionWatcher extends EventEmitter {
     
     const walkDir = async (dir: string): Promise<void> => {
       try {
-        // ディレクトリパスの正規化と検証
+        // Normalize and validate directory path
         const normalizedDir = path.resolve(dir);
         
-        // プロジェクトディレクトリ外へのアクセスを防ぐ
+        // Prevent access outside project directory
         if (!normalizedDir.startsWith(this.projectsDir)) {
           console.warn(`Skipping directory outside projects path: ${normalizedDir}`);
           return;
@@ -220,16 +220,16 @@ export class SessionWatcher extends EventEmitter {
         for (const entry of entries) {
           const fullPath = path.join(dir, entry.name);
           
-          // シンボリックリンクのチェック
+          // Check for symbolic links
           if (entry.isSymbolicLink()) {
-            // シンボリックリンクは追跡しない（セキュリティ対策）
+            // Don't follow symbolic links (security measure)
             continue;
           }
           
           if (entry.isDirectory()) {
             await walkDir(fullPath);
           } else if (entry.isFile() && path.extname(entry.name) === '.jsonl') {
-            // ファイルパスも正規化して検証
+            // Normalize and validate file path as well
             const normalizedPath = path.resolve(fullPath);
             if (normalizedPath.startsWith(this.projectsDir)) {
               files.push(normalizedPath);
@@ -237,7 +237,7 @@ export class SessionWatcher extends EventEmitter {
           }
         }
       } catch (error) {
-        // ディレクトリアクセスエラーは詳細にログ
+        // Log directory access errors in detail
         if (process.env.DEBUG) {
           console.debug(`Error accessing directory ${dir}: ${(error as Error).message}`);
         }
@@ -246,26 +246,26 @@ export class SessionWatcher extends EventEmitter {
 
     await walkDir(this.projectsDir);
     
-    // キャッシュを更新
+    // Update cache
     this.cachedFiles = new Set(files);
     
     return files;
   }
 
-  // キャッシュを無効化して次回フルスキャンを強制
+  // Invalidate cache to force full scan next time
   invalidateCache(): void {
     this.cachedFiles.clear();
   }
 
   async startDirectoryWatch(): Promise<void> {
     if (this.directoryWatcher) {
-      return; // 既に監視中
+      return; // Already monitoring
     }
 
-    // 初回スキャンでキャッシュを作成
+    // Create cache with initial scan
     await this.getAllJsonlFiles();
 
-    // ディレクトリ全体を監視
+    // Monitor entire directory
     this.directoryWatcher = chokidar.watch(this.projectsDir, {
       persistent: true,
       ignoreInitial: true,
@@ -280,7 +280,7 @@ export class SessionWatcher extends EventEmitter {
       }
     });
 
-    // 新しい.jsonlファイルが追加された時
+    // When new .jsonl files are added
     this.directoryWatcher.on('add', (filePath: string) => {
       if (path.extname(filePath) === '.jsonl') {
         this.cachedFiles.add(filePath);
@@ -315,28 +315,28 @@ export class SessionWatcher extends EventEmitter {
       return;
     }
 
-    // 最大セッション数のチェック
+    // Check maximum session count
     if (this.sessions.size >= SessionWatcher.MAX_SESSIONS) {
-      // 古いセッションをクリーンアップ
+      // Clean up old sessions
       await this.cleanupOldSessions();
       
-      // それでもまだ最大数を超えている場合はエラー
+      // If still exceeding maximum count, throw error
       if (this.sessions.size >= SessionWatcher.MAX_SESSIONS) {
         throw new Error(`Maximum number of sessions (${SessionWatcher.MAX_SESSIONS}) reached`);
       }
     }
 
-    // アクセス時刻を記録
+    // Record access time
     this.updateAccessTime(sessionId);
 
-    // ファイルの現在位置を記録
+    // Record current file position
     const stats = await fs.promises.stat(filePath);
     this.filePositions.set(sessionId, stats.size);
 
-    // 初回読み込み（compact操作ではないので false）
+    // Initial read (not a compact operation, so false)
     await this.readExistingData(sessionId, filePath, false);
 
-    // ファイル監視開始
+    // Start file monitoring
     const watcher = chokidar.watch(filePath, {
       persistent: true,
       usePolling: true,
@@ -361,7 +361,7 @@ export class SessionWatcher extends EventEmitter {
       const content = await fs.promises.readFile(filePath, 'utf-8');
       const lines = content.trim().split('\n').filter(line => line);
       
-      // セッションデータを取得または新規作成
+      // Get session data or create new
       let sessionData = this.sessions.get(sessionId);
       
       // /compact操作の場合、または新規セッションの場合はデータを初期化
@@ -394,7 +394,7 @@ export class SessionWatcher extends EventEmitter {
           const data = JSON.parse(line);
           this.processMessage(sessionData, data);
         } catch (e) {
-          // 無効なJSON行はスキップ
+          // Skip invalid JSON lines
         }
       }
 
@@ -406,7 +406,7 @@ export class SessionWatcher extends EventEmitter {
   }
 
   async handleFileChange(sessionId: string, filePath: string): Promise<void> {
-    // アクセス時刻を更新
+    // Update access time
     this.updateAccessTime(sessionId);
     
     try {
@@ -414,22 +414,22 @@ export class SessionWatcher extends EventEmitter {
       const lastPosition = Math.max(0, this.filePositions.get(sessionId) || 0);
       const lastMtime = this.fileMtimes?.get(sessionId) || 0;
       
-      // ファイルサイズが減少した場合、または大幅に変化した場合
+      // If file size decreased or changed significantly
       // （/compactなどでファイルが置き換えられた可能性）
-      // または最終更新時刻が大きく変わった場合
+      // Or if last modified time changed significantly
       const isCompactOperation = stats.size < lastPosition || 
                                 Math.abs(stats.size - lastPosition) > 5000 ||
                                 (lastMtime && Math.abs(stats.mtimeMs - lastMtime) > 60000);
       
       if (isCompactOperation) {
-        // ファイル全体を再読み込み
+        // Reload entire file
         // console.logは blessed UIと干渉するため、デバッグモードの場合のみ出力
         if (process.env.DEBUG || process.env.SESSION_WATCHER_DEBUG) {
           console.error(`[SessionWatcher] Compact operation detected for ${sessionId}`);
         }
         this.filePositions.set(sessionId, 0);
         await this.readExistingData(sessionId, filePath, true);  // isCompactOperationフラグをtrueに
-        // 現在のファイルサイズと更新時刻を記録
+        // Record current file size and modification time
         this.filePositions.set(sessionId, stats.size);
         if (!this.fileMtimes) this.fileMtimes = new Map();
         this.fileMtimes.set(sessionId, stats.mtimeMs);
@@ -437,7 +437,7 @@ export class SessionWatcher extends EventEmitter {
         // compact検出を通知
         this.emit('compact-detected', { sessionId, filePath });
       } else if (stats.size > lastPosition) {
-        // 新しいデータを読み込む（増分読み込み）
+        // Read new data (incremental reading)
         const stream = fs.createReadStream(filePath, {
           start: Math.max(0, lastPosition),
           encoding: 'utf-8'
@@ -460,7 +460,7 @@ export class SessionWatcher extends EventEmitter {
                   this.emit('message', { sessionId, data, sessionData } as MessageEvent);
                 }
               } catch (e) {
-                // 無効なJSON行はスキップ
+                // Skip invalid JSON lines
               }
             }
           }
@@ -561,23 +561,23 @@ export class SessionWatcher extends EventEmitter {
         }
       }
       
-      // すべてのMapからエントリを削除
+      // Remove entries from all Maps
       this.watchers.delete(sessionId);
       this.filePositions.delete(sessionId);
       this.sessions.delete(sessionId);
       this.lastAccessTime.delete(sessionId);
       
-      // ファイル更新時刻も削除
+      // Remove file modification time as well
       if (this.fileMtimes) {
         this.fileMtimes.delete(sessionId);
       }
       
-      // イベントリスナーをクリーンアップ（必要に応じて）
+      // Clean up event listeners (if needed)
       this.removeAllListeners(`session-${sessionId}`);
       
       this.emit('session-stopped', { sessionId });
       
-      // デバッグログ
+      // Debug log
       if (process.env.DEBUG || process.env.SESSION_WATCHER_DEBUG) {
         console.error(`[SessionWatcher] Completely stopped watching session ${sessionId}`);
       }
@@ -605,14 +605,14 @@ export class SessionWatcher extends EventEmitter {
     const now = Date.now();
     let oldestAge: number | null = null;
     
-    // 最も古いセッションの経過時間を計算
+    // Calculate elapsed time for oldest session
     if (this.lastAccessTime.size > 0) {
       const oldestTime = Math.min(...Array.from(this.lastAccessTime.values()));
       oldestAge = now - oldestTime;
     }
     
-    // 推定メモリ使用量の計算（概算）
-    // 各セッションデータは平均10KB、各ウォッチャーは1KBと仮定
+    // Calculate estimated memory usage (approximate)
+    // Assume each session data is 10KB average, each watcher is 1KB
     const sessionMemory = this.sessions.size * 10; // KB
     const watcherMemory = this.watchers.size * 1; // KB
     const cacheMemory = this.cachedFiles.size * 0.1; // KB (ファイルパスのみ)
@@ -629,20 +629,20 @@ export class SessionWatcher extends EventEmitter {
   }
 
   stopAll(): void {
-    // 定期クリーンアップタイマーを停止
+    // Stop periodic cleanup timer
     this.stopCleanupTimer();
     
     for (const sessionId of this.watchers.keys()) {
       this.stopWatching(sessionId);
     }
     
-    // ディレクトリ監視も停止
+    // Stop directory monitoring as well
     if (this.directoryWatcher) {
       this.directoryWatcher.close();
       this.directoryWatcher = null;
     }
     
-    // キャッシュをクリア
+    // Clear cache
     this.cachedFiles.clear();
   }
 }

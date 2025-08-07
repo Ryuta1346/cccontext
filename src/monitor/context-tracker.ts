@@ -279,7 +279,7 @@ export class ContextTracker {
     return Array.from(this.sessions.values());
   }
 
-  getActiveSessions(maxAge: number = 3600000): ContextInfo[] { // デフォルト: 1時間
+  getActiveSessions(maxAge: number = 3600000): ContextInfo[] { // Default: 1 hour
     const now = Date.now();
     return this.getAllSessions().filter(session => {
       return (now - session.lastUpdate.getTime()) < maxAge;
@@ -337,12 +337,12 @@ export class ContextTracker {
     const maxLength = 50;
     const cleanPrompt = prompt.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     
-    // 日本語文字を考慮した文字数カウント
+    // Character counting considering Japanese characters
     let charCount = 0;
     let result = '';
     
     for (const char of cleanPrompt) {
-      // 日本語文字は2文字分としてカウント
+      // Japanese characters are counted as 2 characters width
       const charWidth = char.match(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/) ? 2 : 1;
       
       if (charCount + charWidth > maxLength) {

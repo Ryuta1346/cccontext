@@ -11,7 +11,7 @@ export function stripAnsi(str) {
   return str.replace(/\u001b\[[0-9;]*m/g, '');
 }
 
-// 一時ディレクトリの作成と自動クリーンアップ
+// Create temporary directory with automatic cleanup
 export async function withTempDir(callback) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cccontext-test-'));
   try {
@@ -21,7 +21,7 @@ export async function withTempDir(callback) {
   }
 }
 
-// モックファイルシステム操作
+// Mock file system operations
 export class MockFileSystem {
   constructor() {
     this.files = new Map();
@@ -151,7 +151,7 @@ export class MockTimer {
   }
 }
 
-// セッションデータのファクトリー
+// Session data factory
 export function createMockSessionData(overrides = {}) {
   return {
     sessionId: 'test-session-' + Math.random().toString(36).substr(2, 9),

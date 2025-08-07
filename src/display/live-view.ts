@@ -1,7 +1,7 @@
 import blessed from 'blessed';
 import chalk from 'chalk';
 
-// 型安全な色定義
+// Type-safe color definitions
 type ChalkColor = 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 'cyan' | 'gray' | 'redBright' | 'yellowBright' | 'white';
 
 function getChalkColorFunction(colorName: ChalkColor) {
@@ -82,7 +82,7 @@ export class LiveView {
       title: 'Claude Code Context Monitor'
     });
 
-    // メインコンテナ
+    // Main container
     this.boxes.container = blessed.box({
       parent: this.screen,
       top: 0,
@@ -95,7 +95,7 @@ export class LiveView {
       }
     });
 
-    // ヘッダー
+    // Header
     this.boxes.header = blessed.box({
       parent: this.boxes.container,
       top: 0,
@@ -109,7 +109,7 @@ export class LiveView {
       }
     });
 
-    // セッション情報ボックス
+    // Session info box
     this.boxes.sessionInfo = blessed.box({
       parent: this.boxes.container,
       top: 3,
@@ -129,7 +129,7 @@ export class LiveView {
       }
     });
 
-    // コンテキスト使用量ボックス
+    // Context usage box
     this.boxes.contextUsage = blessed.box({
       parent: this.boxes.container,
       top: 7,
@@ -149,7 +149,7 @@ export class LiveView {
       }
     });
 
-    // 最新ターン情報ボックス
+    // Latest turn info box
     this.boxes.latestTurn = blessed.box({
       parent: this.boxes.container,
       top: 14,
@@ -169,7 +169,7 @@ export class LiveView {
       }
     });
 
-    // 最新プロンプトボックス
+    // Latest prompt box
     this.boxes.latestPrompt = blessed.box({
       parent: this.boxes.container,
       top: 20,
@@ -189,7 +189,7 @@ export class LiveView {
       }
     });
 
-    // セッション合計ボックス
+    // Session totals box
     this.boxes.sessionTotals = blessed.box({
       parent: this.boxes.container,
       top: 24,
@@ -209,7 +209,7 @@ export class LiveView {
       }
     });
 
-    // ステータスバー
+    // Status bar
     this.boxes.statusBar = blessed.box({
       parent: this.boxes.container,
       bottom: 0,
@@ -223,7 +223,7 @@ export class LiveView {
       }
     });
 
-    // キーバインディング
+    // Key bindings
     this.screen.key(['q', 'C-c'], () => {
       this.destroy();
       process.exit(0);
@@ -248,32 +248,32 @@ export class LiveView {
     
     if (!this.screen) return;
 
-    // セッション情報の更新
+    // Update session info
     if (this.boxes.sessionInfo) {
       this.boxes.sessionInfo.setContent(this.formatSessionInfo(info));
     }
 
-    // コンテキスト使用量の更新
+    // Update context usage
     if (this.boxes.contextUsage) {
       this.boxes.contextUsage.setContent(this.formatContextUsage(info));
     }
 
-    // 最新ターン情報の更新
+    // Update latest turn info
     if (info.latestTurn && this.boxes.latestTurn) {
       this.boxes.latestTurn.setContent(this.formatLatestTurn(info));
     }
 
-    // 最新プロンプトの更新
+    // Update latest prompt
     if (info.latestPrompt && this.boxes.latestPrompt) {
       this.boxes.latestPrompt.setContent(this.formatLatestPrompt(info));
     }
 
-    // セッション合計の更新
+    // Update session totals
     if (this.boxes.sessionTotals) {
       this.boxes.sessionTotals.setContent(this.formatSessionTotals(info));
     }
 
-    // 警告レベルに応じて枠線の色を変更
+    // Change border color based on warning level
     const borderColor = this.getBorderColor(info.warningLevel);
     if (this.boxes.contextUsage && this.boxes.contextUsage.style.border) {
       this.boxes.contextUsage.style.border.fg = borderColor;
