@@ -7,6 +7,44 @@ import { LiveView } from './display/live-view.js';
 import { SessionsLiveView } from './display/sessions-live-view.js';
 import { UsageCalculator } from './monitor/usage-calculator.js';
 import { EnhancedSessionsManager } from './monitor/enhanced-sessions-manager.js';
+import type { SessionData } from './types/index.js';
+
+// ContextInfo型を定義（monitor/context-tracker.tsから参照）
+interface ContextInfo {
+  sessionId: string;
+  model: string;
+  modelName: string;
+  contextWindow: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheTokens: number;
+  usagePercentage: number;
+  remainingTokens: number;
+  remainingPercentage: number;
+  totalCost: number;
+  turns: number;
+  averageTokensPerTurn: number;
+  estimatedRemainingTurns: number;
+  warningLevel: 'normal' | 'warning' | 'severe' | 'critical';
+  startTime?: number | string | Date;
+  lastUpdate: Date;
+  latestPrompt?: string;
+  latestPromptTime?: number | string | Date;
+  autoCompact: {
+    enabled: boolean;
+    willTrigger: boolean;
+    threshold: number;
+    thresholdPercentage?: number;
+    remainingPercentage: number;
+    remainingTokens?: number;
+    warningLevel: string;
+    willCompactSoon?: boolean;
+    effectiveLimit?: number;
+    systemOverhead?: number;
+    autoCompactThreshold?: number;
+  };
+}
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import fs from 'fs';
@@ -35,7 +73,7 @@ interface SessionForList {
 interface SessionWithContext {
   sessionId: string;
   file: string;
-  lastModified: Date;
+  lastModified: Date | number;
   size: number;
   model: string;
   modelName: string;
@@ -56,14 +94,6 @@ interface ActiveSession {
   filePath: string;
 }
 
-interface SessionData {
-  sessionId: string;
-  model: string;
-  turns: number;
-  totalTokens: number;
-  latestPrompt?: string;
-  messages: any[];
-}
 
 class CCContextCLI {
   private watcher: SessionWatcher;
@@ -190,7 +220,7 @@ class CCContextCLI {
         
         if (sessionData) {
           const contextInfo = this.tracker.updateSession(sessionData);
-          const safeSessionData = sessionData as any;
+          const safeSessionData = sessionData as SessionData; // TypeScript 非同期パターン対応
           
           sessions.push({
             sessionId,
@@ -210,7 +240,11 @@ class CCContextCLI {
       }
 
       // 最終更新時刻でソート
-      sessions.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+      sessions.sort((a, b) => {
+        const aTime = a.lastModified instanceof Date ? a.lastModified.getTime() : a.lastModified;
+        const bTime = b.lastModified instanceof Date ? b.lastModified.getTime() : b.lastModified;
+        return bTime - aTime;
+      });
 
       // 表示数を制限
       const limit = parseInt(String(options.limit || 10));
@@ -380,7 +414,7 @@ class CCContextCLI {
         await tempWatcher.readExistingData(sessionId, file, false);
         
         if (sessionData) {
-          const safeSessionData = sessionData as any;
+          const safeSessionData = sessionData as SessionData; // TypeScript 非同期パターン対応
           sessions.push({
             sessionId,
             file,
@@ -394,7 +428,11 @@ class CCContextCLI {
       }
 
       // 最終更新時刻でソート（降順）
-      sessions.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+      sessions.sort((a, b) => {
+        const aTime = a.lastModified instanceof Date ? a.lastModified.getTime() : a.lastModified;
+        const bTime = b.lastModified instanceof Date ? b.lastModified.getTime() : b.lastModified;
+        return bTime - aTime;
+      });
 
       if (sessions.length === 0) {
         console.log(chalk.yellow('No sessions found.'));
@@ -473,8 +511,9 @@ class CCContextCLI {
       const { SessionsManager } = await import('./monitor/sessions-manager.js');
       const manager = new SessionsManager();
       
-      if ((manager as any).cache) {
-        (manager as any).cache.clearAll();
+      // SessionsManagerのclearCacheメソッドを使用
+      if (typeof manager.clearCache === 'function') {
+        manager.clearCache();
         console.log(chalk.green('✅ Session cache cleared successfully'));
       } else {
         console.log(chalk.yellow('⚠️  No session cache found'));
@@ -504,7 +543,7 @@ class CCContextCLI {
       const filesToWatch = sortedFiles.slice(0, limit);
       
       // 初期セッションリスト
-      const sessions: any[] = [];
+      const sessions: SessionWithContext[] = [];
       
       // 各セッションに対してwatchSessionを開始
       for (const file of filesToWatch) {
@@ -536,12 +575,14 @@ class CCContextCLI {
         this.watchedSessions.set(sessionId, sessionWatcher);
         
         // 初期データを取得してセッションリストに追加
-        const sessionData = (sessionWatcher as any).sessions.get(sessionId);
+        const sessionData = sessionWatcher.getSessionData(sessionId);
         if (sessionData) {
           const contextInfo = this.tracker.updateSession(sessionData);
           sessions.push({
             sessionId,
+            file,
             lastModified: stats.mtime,
+            size: stats.size,
             model: sessionData.model,
             modelName: contextInfo.modelName,
             turns: sessionData.turns,
@@ -599,7 +640,7 @@ class CCContextCLI {
     try {
       // イベントリスナーを先に設定
       // セッション読み込み完了イベント
-      this.sessionsManager.on('sessions-loaded', (sessions: any[]) => {
+      this.sessionsManager.on('sessions-loaded', (sessions: SessionWithContext[]) => {
         if (debugMode) {
           console.error(`[CLI] Sessions loaded event received: ${sessions.length} sessions`);
         }
@@ -621,7 +662,7 @@ class CCContextCLI {
       });
       
       // セッション更新イベント（リアルタイム）
-      this.sessionsManager.on('sessions-updated', (sessions: any[]) => {
+      this.sessionsManager.on('sessions-updated', (sessions: SessionWithContext[]) => {
         const limit = parseInt(String(options.limit || 20));
         const displaySessions = sessions.slice(0, limit);
         if (this.sessionsView) {
@@ -657,10 +698,15 @@ class CCContextCLI {
   }
 
   private updateStatusBarForEventDriven(): void {
-    if (this.sessionsView && (this.sessionsView as any).boxes && (this.sessionsView as any).boxes.statusBar) {
-      (this.sessionsView as any).boxes.statusBar.setContent(
-        '[Live] Event-driven updates (↑↓: navigate, q: exit, r: refresh)'
-      );
+    // StatusBarの更新（内部プロパティへの安全なアクセス）
+    if (this.sessionsView && 'boxes' in this.sessionsView && this.sessionsView.boxes && 
+        'statusBar' in this.sessionsView.boxes && this.sessionsView.boxes.statusBar) {
+      if ('setContent' in this.sessionsView.boxes.statusBar && 
+          typeof (this.sessionsView.boxes.statusBar as { setContent?: unknown }).setContent === 'function') {
+        (this.sessionsView.boxes.statusBar as { setContent: (content: string) => void }).setContent(
+          '[Live] Event-driven updates (↑↓: navigate, q: exit, r: refresh)'
+        );
+      }
     }
   }
 
@@ -676,12 +722,13 @@ class CCContextCLI {
     return filesWithStats.map(f => f.file);
   }
 
-  private updateSessionInView(sessionId: string, sessionData: SessionData, contextInfo: any, lastModified: Date | number): void {
+  private updateSessionInView(sessionId: string, sessionData: SessionData, contextInfo: ContextInfo, lastModified: Date | number): void {
     // 現在の表示セッションリストを取得
-    const currentSessions = (this.sessionsView as any)?.sessions || [];
+    const currentSessions = this.sessionsView && 'sessions' in this.sessionsView ? 
+      (this.sessionsView as { sessions: SessionWithContext[] }).sessions : [];
     
     // 該当セッションを更新
-    const updatedSessions = currentSessions.map((session: any) => {
+    const updatedSessions = currentSessions.map((session: SessionWithContext) => {
       if (session.sessionId === sessionId) {
         return {
           ...session,
@@ -700,9 +747,12 @@ class CCContextCLI {
     });
     
     // セッションが存在しない場合は追加
-    if (!updatedSessions.find((s: any) => s.sessionId === sessionId)) {
+    if (!updatedSessions.find((s: SessionWithContext) => s.sessionId === sessionId)) {
+      // 新規セッションの場合、file と size が不明なためデフォルト値を設定
       updatedSessions.push({
         sessionId,
+        file: '', // ファイルパス不明
+        size: 0,  // ファイルサイズ不明
         model: sessionData.model,
         modelName: contextInfo.modelName,
         turns: sessionData.turns,
@@ -716,7 +766,7 @@ class CCContextCLI {
     }
     
     // ソートして表示更新
-    updatedSessions.sort((a: any, b: any) => {
+    updatedSessions.sort((a: SessionWithContext, b: SessionWithContext) => {
       const aTime = a.lastModified instanceof Date ? a.lastModified.getTime() : a.lastModified;
       const bTime = b.lastModified instanceof Date ? b.lastModified.getTime() : b.lastModified;
       return bTime - aTime;
@@ -758,8 +808,9 @@ class CCContextCLI {
       this.watchedSessions.delete(sessionId);
       
       // ビューからも削除
-      const currentSessions = (this.sessionsView as any)?.sessions || [];
-      const updatedSessions = currentSessions.filter((s: any) => s.sessionId !== sessionId);
+      const currentSessions = this.sessionsView && 'sessions' in this.sessionsView ? 
+      (this.sessionsView as { sessions: SessionWithContext[] }).sessions : [];
+      const updatedSessions = currentSessions.filter((s: SessionWithContext) => s.sessionId !== sessionId);
       if (this.sessionsView) {
         this.sessionsView.updateSessions(updatedSessions);
       }
@@ -857,13 +908,14 @@ program
 
 try {
   program.parse(process.argv);
-} catch (err: any) {
+} catch (error: unknown) {
   // CommanderのexitOverrideでhelp/version時に例外が発生
+  const err = error as { code?: string };
   if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
     process.exit(0);
   } else if (err.code && err.code.startsWith('commander.')) {
     process.exit(1);
   } else {
-    throw err;
+    throw error;
   }
 }

@@ -128,8 +128,10 @@ export class SessionsManager extends EventEmitter {
         model: sessionData.model,
         messages: [], // We're using parsed data, not raw messages
         totalTokens: sessionData.totalTokens,
-        totalCacheTokens: sessionData.totalCacheTokens
-      } as any);
+        totalCacheTokens: sessionData.totalCacheTokens,
+        turns: sessionData.turns,
+        totalCost: sessionData.totalCost
+      });
 
       // Extend context info with session-specific data
       return {
@@ -197,6 +199,10 @@ export class SessionsManager extends EventEmitter {
 
   async getActiveSession(): Promise<any> {
     return this.watcher.findActiveSession();
+  }
+
+  clearCache(): void {
+    this.cache.clearAll();
   }
 
   destroy(): void {

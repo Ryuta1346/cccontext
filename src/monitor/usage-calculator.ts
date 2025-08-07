@@ -89,8 +89,8 @@ export class UsageCalculator {
     let turns = 0;
 
     for (const message of messages) {
-      if (message?.message) {
-        const cost = this.calculateCost(message.message.usage, model);
+      if (message?.usage) {
+        const cost = this.calculateCost(message.usage, model);
         
         totalInputTokens += cost.inputTokens;
         totalOutputTokens += cost.outputTokens;
@@ -101,7 +101,7 @@ export class UsageCalculator {
         }
         totalCost += cost.totalCost;
         
-        if (message.message?.role === 'assistant') {
+        if (message.role === 'assistant') {
           turns++;
         }
       }

@@ -158,8 +158,10 @@ export class EnhancedSessionsManager extends EventEmitter {
         model: sessionData.model,
         messages: [], // We're using parsed data, not raw messages
         totalTokens: sessionData.totalTokens,
-        totalCacheTokens: sessionData.totalCacheTokens
-      } as any);
+        totalCacheTokens: sessionData.totalCacheTokens,
+        turns: sessionData.turns,
+        totalCost: sessionData.totalCost
+      });
 
       // Return all context info including autoCompact
       return {

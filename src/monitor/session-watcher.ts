@@ -4,27 +4,8 @@ import os from 'os';
 import { EventEmitter } from 'events';
 import chokidar from 'chokidar';
 import type { FSWatcher } from 'chokidar';
+import type { SessionData } from '../types/index.js';
 
-interface SessionData {
-  sessionId: string;
-  messages: any[];
-  totalTokens: number;
-  totalCacheTokens: number;
-  totalCost: number;
-  turns: number;
-  model: string | null;
-  startTime: Date | null;
-  isCompacted?: boolean;
-  latestUsage?: {
-    input: number;
-    output: number;
-    cache: number;
-    cacheCreation: number;
-    timestamp: string;
-  };
-  latestPrompt?: string;
-  latestPromptTime?: string;
-}
 
 interface ActiveSession {
   sessionId: string;
@@ -229,7 +210,7 @@ export class SessionWatcher extends EventEmitter {
           totalCacheTokens: 0,
           totalCost: 0,
           turns: 0,
-          model: null,
+          model: 'unknown',
           startTime: null
         };
       }
@@ -241,7 +222,7 @@ export class SessionWatcher extends EventEmitter {
         sessionData.totalCacheTokens = 0;
         sessionData.totalCost = 0;
         sessionData.turns = 0;
-        sessionData.model = null;
+        sessionData.model = 'unknown';
         sessionData.startTime = null;
       }
 
@@ -397,6 +378,10 @@ export class SessionWatcher extends EventEmitter {
       this.sessions.delete(sessionId);
       this.emit('session-stopped', { sessionId });
     }
+  }
+
+  getSessionData(sessionId: string): SessionData | null {
+    return this.sessions.get(sessionId) || null;
   }
 
   stopAll(): void {

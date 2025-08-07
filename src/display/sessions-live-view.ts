@@ -4,17 +4,20 @@ import stringWidth from 'string-width';
 
 interface SessionData {
   sessionId: string;
+  file: string;
+  size: number;
+  model: string;
   modelName?: string;
   usagePercentage: number;
   turns: number;
+  totalTokens: number;
   totalCost?: number;
   lastModified: Date | number;
   latestPrompt?: string;
-  autoCompact?: {
-    enabled?: boolean;
+  autoCompact: {
+    willTrigger: boolean;
+    threshold: number;
     remainingPercentage: number;
-    thresholdPercentage?: number;
-    warningLevel?: string;
   };
 }
 
@@ -28,7 +31,7 @@ interface Boxes {
 
 export class SessionsLiveView {
   private screen: blessed.Widgets.Screen | null;
-  private boxes: Partial<Boxes>;
+  public boxes: Partial<Boxes>;
   public sessions: SessionData[];
   private updateInterval: NodeJS.Timeout | null;
   // private selectedIndex: number; // 選択中の行インデックスを保存
@@ -196,7 +199,10 @@ export class SessionsLiveView {
     if (!this.screen || !this.boxes.sessionsTable) return;
 
     // 現在の選択位置を保存
-    const currentSelected = (this.boxes.sessionsTable as any).selectedIndex;
+    // selectedIndexプロパティは内部的に使用される可能性があるが、型定義に含まれていないため
+    // 型安全な方法でアクセス
+    const currentSelected = this.boxes.sessionsTable && 'selectedIndex' in this.boxes.sessionsTable ? 
+      (this.boxes.sessionsTable as { selectedIndex?: number }).selectedIndex : undefined;
 
     // テーブルデータの準備
     const tableData: string[][] = [
@@ -234,7 +240,7 @@ export class SessionsLiveView {
     this.boxes.sessionsTable.setData(tableData);
 
     // 選択位置を復元（範囲外にならないようチェック）
-    if (currentSelected > 0 && currentSelected < tableData.length) {
+    if (currentSelected != null && currentSelected > 0 && currentSelected < tableData.length) {
       this.boxes.sessionsTable.select(currentSelected);
     }
 
@@ -278,31 +284,27 @@ export class SessionsLiveView {
     return `$${safeCost.toFixed(2)}`;
   }
 
-  private formatAutoCompact(autoCompact?: SessionData['autoCompact']): string {
-    // autoCompactが存在しない、またはenabledが明示的にfalseの場合のみN/A
-    if (!autoCompact || autoCompact.enabled === false) {
+  private formatAutoCompact(autoCompact: SessionData['autoCompact']): string {
+    if (!autoCompact) {
       return 'N/A';
     }
 
-    const { remainingPercentage, warningLevel } = autoCompact;
+    const { remainingPercentage, willTrigger } = autoCompact;
     
-    if (remainingPercentage <= 0) {
+    if (remainingPercentage <= 0 || willTrigger) {
       return 'ACTIVE!';
     }
     
     // 残り容量を % で表示
     const percentStr = remainingPercentage.toFixed(1) + '%';
     
-    // 警告レベルに応じた表示
-    switch (warningLevel) {
-      case 'critical':
-        return `!${percentStr}`;
-      case 'warning':
-        return `⚠ ${percentStr}`;
-      case 'notice':
-        return percentStr;
-      default:
-        return percentStr;
+    // 閾値に基づいた警告表示
+    if (remainingPercentage <= 10) {
+      return `!${percentStr}`;
+    } else if (remainingPercentage <= 20) {
+      return `⚠ ${percentStr}`;
+    } else {
+      return percentStr;
     }
   }
 

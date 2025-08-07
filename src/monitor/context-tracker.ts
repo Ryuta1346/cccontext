@@ -6,11 +6,6 @@ import type { SessionData, Message } from '../types/index.js';
 // Re-export CONTEXT_WINDOWS for backward compatibility
 export { CONTEXT_WINDOWS };
 
-interface LatestUsage {
-  input: number;
-  output: number;
-  cache: number;
-}
 
 interface LatestTurn {
   input: number;
@@ -212,10 +207,10 @@ export class ContextTracker {
       averageTokensPerTurn: stats.averageTokensPerTurn,
       estimatedRemainingTurns,
       warningLevel,
-      startTime: (sessionData as any).startTime,
+      startTime: sessionData.startTime || undefined,
       lastUpdate: new Date(),
-      latestPrompt: (sessionData as any).latestPrompt,
-      latestPromptTime: (sessionData as any).latestPromptTime,
+      latestPrompt: sessionData.latestPrompt,
+      latestPromptTime: sessionData.latestPromptTime,
       autoCompact: {
         enabled: autoCompactInfo.enabled,
         willTrigger: autoCompactInfo.willCompactSoon,
@@ -231,8 +226,8 @@ export class ContextTracker {
       }
     };
     
-    if ((sessionData as any).latestUsage) {
-      const latestUsage = (sessionData as any).latestUsage as LatestUsage;
+    if (sessionData.latestUsage) {
+      const latestUsage = sessionData.latestUsage;
       contextInfo.latestTurn = {
         input: latestUsage.input,
         output: latestUsage.output,

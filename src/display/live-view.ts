@@ -1,6 +1,25 @@
 import blessed from 'blessed';
 import chalk from 'chalk';
 
+// 型安全な色定義
+type ChalkColor = 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 'cyan' | 'gray' | 'redBright' | 'yellowBright' | 'white';
+
+function getChalkColorFunction(colorName: ChalkColor) {
+  switch (colorName) {
+    case 'red': return chalk.red;
+    case 'green': return chalk.green;
+    case 'yellow': return chalk.yellow;
+    case 'blue': return chalk.blue;
+    case 'magenta': return chalk.magenta;
+    case 'cyan': return chalk.cyan;
+    case 'gray': return chalk.gray;
+    case 'redBright': return chalk.redBright;
+    case 'yellowBright': return chalk.yellowBright;
+    case 'white': return chalk.white;
+    default: return chalk.white;
+  }
+}
+
 interface ContextInfo {
   sessionId: string;
   modelName: string;
@@ -283,14 +302,15 @@ Started: ${chalk.gray(duration)} ago`;
       const acColor = this.getAutoCompactColor(ac.warningLevel || 'normal');
       
       if (ac.remainingPercentage > 0) {
-        autoCompactInfo = `\nLeft until Auto-compact: ${(chalk as any)[acColor](`${ac.remainingPercentage.toFixed(1)}%`)}`;
+        const colorFunc = getChalkColorFunction(acColor);
+        autoCompactInfo = `\nLeft until Auto-compact: ${colorFunc(`${ac.remainingPercentage.toFixed(1)}%`)}`;
       } else {
         autoCompactInfo = `\n${chalk.red.bold('AUTO-COMPACT ACTIVE')}`;
       }
     }
     
     return `
-${bar} ${(chalk as any)[color](percentage + '%')} (${this.formatTokens(info.totalTokens)}/${this.formatTokens(info.contextWindow)})
+${bar} ${getChalkColorFunction(color)(percentage + '%')} (${this.formatTokens(info.totalTokens)}/${this.formatTokens(info.contextWindow)})
 
 Remaining: ${chalk.green(this.formatTokens(info.remainingTokens))} tokens (${info.remainingPercentage.toFixed(1)}%)${autoCompactInfo}
 ${this.getWarningMessage(info)}`;
@@ -334,13 +354,13 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
     const empty = Math.max(0, width - filled);
     
     const color = this.getPercentageColor(safePercentage);
-    const filledChar = (chalk as any)[color]('█');
+    const filledChar = getChalkColorFunction(color)('█');
     const emptyChar = chalk.gray('░');
     
     return filledChar.repeat(filled) + emptyChar.repeat(empty);
   }
 
-  private getPercentageColor(percentage: number): string {
+  private getPercentageColor(percentage: number): ChalkColor {
     if (percentage >= 95) return 'red';
     if (percentage >= 90) return 'redBright';
     if (percentage >= 80) return 'yellow';
@@ -357,7 +377,7 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
     }
   }
 
-  private getAutoCompactColor(warningLevel: string): string {
+  private getAutoCompactColor(warningLevel: string): ChalkColor {
     switch (warningLevel) {
       case 'active': return 'red';
       case 'critical': return 'red';
