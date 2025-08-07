@@ -430,8 +430,8 @@ describe('LiveView', () => {
       };
       
       const formatted = view.formatSessionInfo(info);
-      expect(formatted).toContain('a'.repeat(16));
-      expect(formatted).toContain('...');
+      expect(formatted).toContain('a'.repeat(100));
+      expect(formatted).not.toContain('...');
     });
 
     it('should handle extreme token values', () => {

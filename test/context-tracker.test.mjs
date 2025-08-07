@@ -211,7 +211,7 @@ describe('ContextTracker', () => {
 
     const formatted = tracker.formatContextInfo(info);
     
-    expect(formatted.session).toBe('abcdef12');
+    expect(formatted.session).toBe('abcdef1234567890');
     expect(formatted.usage).toBe('45.7%');
     expect(formatted.tokens).toBe('91.2k/200.0k');
     expect(formatted.remaining).toBe('108.8k');

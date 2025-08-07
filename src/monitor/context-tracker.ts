@@ -290,7 +290,7 @@ export class ContextTracker {
     const calc = this.calculator;
     
     return {
-      session: info.sessionId.substring(0, 8),
+      session: info.sessionId,
       model: info.modelName,
       usage: `${info.usagePercentage.toFixed(1)}%`,
       tokens: `${calc.formatTokens(info.totalTokens)}/${calc.formatTokens(info.contextWindow)}`,

@@ -155,7 +155,7 @@ class CCContextCLI {
       }
 
       console.log(chalk.green(`✓ Found session: ${sessionToMonitor.sessionId}`));
-      this.view.showMessage(`Monitoring session: ${sessionToMonitor.sessionId.substring(0, 8)}...`);
+      this.view.showMessage(`Monitoring session: ${sessionToMonitor.sessionId}`);
 
       // Setup event handlers
       this.watcher.on('session-data', (sessionData: SessionData) => {
@@ -468,7 +468,7 @@ class CCContextCLI {
         const num = chalk.yellow((index + 1).toString().padEnd(3));
         
         // Session ID (10 characters)
-        const sessionId = chalk.white(session.sessionId.substring(0, 8).padEnd(10));
+        const sessionId = chalk.white(session.sessionId);
         
         // Usage rate and progress bar (15 characters)
         const progressBar = this.createMiniProgressBar(usage);

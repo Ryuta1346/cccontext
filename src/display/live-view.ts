@@ -285,7 +285,7 @@ export class LiveView {
   private formatSessionInfo(info: ContextInfo): string {
     const duration = this.calculateDuration(info.startTime);
     return `
-Session: ${chalk.yellow(info.sessionId.substring(0, 16))}...
+Session: ${chalk.yellow(info.sessionId)}
 Model: ${chalk.cyan(info.modelName)}
 Started: ${chalk.gray(duration)} ago`;
   }

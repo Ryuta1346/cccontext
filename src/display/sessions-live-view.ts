@@ -208,7 +208,7 @@ export class SessionsLiveView {
     sessionsData.forEach((session, index) => {
       const row = [
         (index + 1).toString(),  // Add number
-        session.sessionId.substring(0, 8),
+        session.sessionId,
         this.formatUsage(session.usagePercentage || 0),
         this.formatAutoCompact(session.autoCompact),
         session.modelName || 'Unknown',
