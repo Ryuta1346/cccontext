@@ -4,9 +4,12 @@
   "description": "Real-time context usage monitor for Claude Code",
   "type": "module",
   "main": "dist/cli.js",
+  "module": "dist/cli.js",
   "types": "dist/cli.d.ts",
-  "bin": {
-    "cccontext": "./bin/cccontext"
+  "bin": "./dist/cli.js",
+  "exports": {
+    ".": "./dist/cli.js",
+    "./package.json": "./package.json"
   },
   "scripts": {
     "start": "node dist/cli.js",
@@ -42,9 +45,7 @@
     "url": "https://github.com/ryuta/cccontext/issues"
   },
   "files": [
-    "bin/",
     "dist/",
-    "src/types/",
     "README.md",
     "LICENSE"
   ],
