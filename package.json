@@ -45,11 +45,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ryuta/cccontext.git"
+    "url": "https://github.com/ryuta1346/cccontext.git"
   },
-  "homepage": "https://github.com/ryuta/cccontext#readme",
+  "homepage": "https://github.com/ryuta1346/cccontext#readme",
   "bugs": {
-    "url": "https://github.com/ryuta/cccontext/issues"
+    "url": "https://github.com/ryuta1346/cccontext/issues"
   },
   "files": [
     "dist/",
