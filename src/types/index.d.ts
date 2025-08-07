@@ -1,6 +1,6 @@
 // Core Session and Message Types
 export interface MessageContent {
-  type: 'text' | 'image';
+  type: "text" | "image";
   text?: string;
   source?: {
     type: string;
@@ -17,7 +17,7 @@ export interface MessageUsage {
 }
 
 export interface Message {
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: MessageContent[] | string;
   usage?: MessageUsage;
 }
@@ -34,7 +34,7 @@ export interface LatestUsage {
 export interface MessageData {
   timestamp?: string | number;
   message?: {
-    role?: 'user' | 'assistant' | 'system';
+    role?: "user" | "assistant" | "system";
     content?: MessageContent[] | string;
     model?: string;
     usage?: MessageUsage;
@@ -44,7 +44,7 @@ export interface MessageData {
 export interface SessionData {
   sessionId: string;
   model: string;
-  messages?: Message[];  // Optional for display-only sessions
+  messages?: Message[]; // Optional for display-only sessions
   totalTokens: number;
   totalCacheTokens?: number;
   totalCost?: number;

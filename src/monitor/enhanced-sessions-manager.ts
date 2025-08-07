@@ -1,7 +1,7 @@
-import { EventEmitter } from 'events';
-import { SessionWatcher } from './session-watcher.js';
-import { SessionCache } from './session-cache.js';
-import { ContextTracker } from './context-tracker.js';
+import { EventEmitter } from "events";
+import { ContextTracker } from "./context-tracker.js";
+import { SessionCache } from "./session-cache.js";
+import { SessionWatcher } from "./session-watcher.js";
 
 interface SessionInfo {
   sessionId: string;
@@ -19,7 +19,7 @@ interface SessionInfo {
   turns: number;
   averageTokensPerTurn: number;
   estimatedRemainingTurns: number;
-  warningLevel: 'normal' | 'warning' | 'severe' | 'critical';
+  warningLevel: "normal" | "warning" | "severe" | "critical";
   startTime?: number | string | Date;
   lastUpdate: Date;
   latestPrompt?: string;
@@ -74,7 +74,7 @@ export class EnhancedSessionsManager extends EventEmitter {
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
-    this.log('Initializing enhanced sessions manager...');
+    this.log("Initializing enhanced sessions manager...");
 
     try {
       // Setup file monitoring events
@@ -82,13 +82,12 @@ export class EnhancedSessionsManager extends EventEmitter {
 
       // Start directory monitoring
       await this.watcher.startDirectoryWatch();
-      
+
       // Initial session loading
       await this.loadAllSessions();
-      
+
       this.isInitialized = true;
-      this.log('Enhanced sessions manager initialized successfully');
-      
+      this.log("Enhanced sessions manager initialized successfully");
     } catch (error) {
       this.log(`Initialization error: ${(error as Error).message}`);
       throw error;
@@ -97,14 +96,14 @@ export class EnhancedSessionsManager extends EventEmitter {
 
   private setupFileWatchingEvents(): void {
     // When a new session file is added
-    this.watcher.on('session-added', async (data: SessionChangeEvent) => {
+    this.watcher.on("session-added", async (data: SessionChangeEvent) => {
       const { sessionId, filePath } = data;
       this.log(`Session added: ${sessionId}`);
       this.scheduleUpdate(filePath);
     });
 
     // When a session file is deleted
-    this.watcher.on('session-removed', (data: SessionChangeEvent) => {
+    this.watcher.on("session-removed", (data: SessionChangeEvent) => {
       const { sessionId, filePath } = data;
       this.log(`Session removed: ${sessionId}`);
       this.cache.clearSession(filePath);
@@ -112,7 +111,7 @@ export class EnhancedSessionsManager extends EventEmitter {
     });
 
     // When a session file is updated (new messages, etc.)
-    this.watcher.on('session-updated', async (data: SessionChangeEvent) => {
+    this.watcher.on("session-updated", async (data: SessionChangeEvent) => {
       const { sessionId, filePath } = data;
       this.log(`Session updated: ${sessionId}`);
       this.cache.clearSession(filePath); // Clear cache to force reload
@@ -124,20 +123,19 @@ export class EnhancedSessionsManager extends EventEmitter {
    * Initial loading of all sessions
    */
   async loadAllSessions(): Promise<void> {
-    this.log('Loading all sessions...');
-    
+    this.log("Loading all sessions...");
+
     try {
       const files = await this.watcher.getAllJsonlFiles();
       this.log(`Found ${files.length} session files`);
-      
+
       // Load sessions in parallel for performance improvement
-      const sessionPromises = files.map(file => this.loadSingleSession(file));
+      const sessionPromises = files.map((file) => this.loadSingleSession(file));
       const sessions = await Promise.all(sessionPromises);
       const validSessions = sessions.filter((session): session is SessionInfo => session !== null);
-      
+
       this.log(`Successfully loaded ${validSessions.length} sessions`);
-      this.emit('sessions-loaded', validSessions);
-      
+      this.emit("sessions-loaded", validSessions);
     } catch (error) {
       this.log(`Error loading sessions: ${(error as Error).message}`);
       throw error;
@@ -160,7 +158,7 @@ export class EnhancedSessionsManager extends EventEmitter {
         totalTokens: sessionData.totalTokens,
         totalCacheTokens: sessionData.totalCacheTokens,
         turns: sessionData.turns,
-        totalCost: sessionData.totalCost
+        totalCost: sessionData.totalCost,
       });
 
       // Return all context info including autoCompact
@@ -169,7 +167,7 @@ export class EnhancedSessionsManager extends EventEmitter {
         lastModified: sessionData.lastModified instanceof Date ? sessionData.lastModified : undefined,
         startTime: sessionData.firstTimestamp || undefined,
         latestPrompt: sessionData.latestPrompt,
-        latestPromptTime: sessionData.lastTimestamp || undefined
+        latestPromptTime: sessionData.lastTimestamp || undefined,
       };
     } catch (error) {
       this.log(`Error loading session ${filePath}: ${(error as Error).message}`);
@@ -182,7 +180,7 @@ export class EnhancedSessionsManager extends EventEmitter {
    */
   private scheduleUpdate(filePath: string): void {
     this.updateBatch.add(filePath);
-    
+
     // Clear existing timeout
     if (this.batchTimeout) {
       clearTimeout(this.batchTimeout);
@@ -202,17 +200,16 @@ export class EnhancedSessionsManager extends EventEmitter {
 
     const filePaths = Array.from(this.updateBatch);
     this.updateBatch.clear();
-    
+
     this.log(`Processing batch update for ${filePaths.length} files`);
 
     try {
       // Load updated sessions in parallel
-      const sessionPromises = filePaths.map(file => this.loadSingleSession(file));
+      const sessionPromises = filePaths.map((file) => this.loadSingleSession(file));
       await Promise.all(sessionPromises);
-      
+
       // Get latest state of all sessions and notify
       this.emitSessionsUpdate();
-      
     } catch (error) {
       this.log(`Error in batch update: ${(error as Error).message}`);
     }
@@ -224,7 +221,7 @@ export class EnhancedSessionsManager extends EventEmitter {
   private async emitSessionsUpdate(): Promise<void> {
     try {
       const sessions = await this.getAllSessions();
-      this.emit('sessions-updated', sessions);
+      this.emit("sessions-updated", sessions);
     } catch (error) {
       this.log(`Error emitting sessions update: ${(error as Error).message}`);
     }
@@ -235,9 +232,9 @@ export class EnhancedSessionsManager extends EventEmitter {
    */
   async getAllSessions(): Promise<SessionInfo[]> {
     const files = await this.watcher.getAllJsonlFiles();
-    const sessionPromises = files.map(file => this.loadSingleSession(file));
+    const sessionPromises = files.map((file) => this.loadSingleSession(file));
     const sessions = await Promise.all(sessionPromises);
-    
+
     return sessions
       .filter((session): session is SessionInfo => session !== null)
       .sort((a, b) => {
@@ -273,19 +270,19 @@ export class EnhancedSessionsManager extends EventEmitter {
    * Clean up resources
    */
   destroy(): void {
-    this.log('Destroying enhanced sessions manager...');
-    
+    this.log("Destroying enhanced sessions manager...");
+
     if (this.batchTimeout) {
       clearTimeout(this.batchTimeout);
       this.batchTimeout = null;
     }
-    
+
     this.watcher.stopAll();
     this.cache.clearAll();
     this.updateBatch.clear();
     this.removeAllListeners();
-    
+
     this.isInitialized = false;
-    this.log('Enhanced sessions manager destroyed');
+    this.log("Enhanced sessions manager destroyed");
   }
 }

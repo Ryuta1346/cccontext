@@ -27,16 +27,6 @@
     "allowSyntheticDefaultImports": true,
     "types": ["node", "blessed"]
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.d.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "test",
-    "coverage",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.d.ts"],
+  "exclude": ["node_modules", "dist", "test", "coverage", "**/*.test.ts", "**/*.spec.ts"]
 }

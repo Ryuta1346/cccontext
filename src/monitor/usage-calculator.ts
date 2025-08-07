@@ -1,5 +1,5 @@
-import { PRICING, getModelName as getModelNameFromConfig, getModelPricing } from './model-config.js';
-import type { Message } from '../types/index.js';
+import type { Message } from "../types/index.js";
+import { getModelName as getModelNameFromConfig, getModelPricing, PRICING } from "./model-config.js";
 
 // Type for handling nested message structures from tests
 interface NestedMessage {
@@ -11,9 +11,13 @@ type FlexibleMessage = Message | NestedMessage;
 
 // Type guard for nested message
 function isNestedMessage(msg: FlexibleMessage): msg is NestedMessage {
-  return msg != null && typeof msg === 'object' && 'message' in msg && 
-         (msg as NestedMessage).message != null && 
-         typeof (msg as NestedMessage).message === 'object';
+  return (
+    msg != null &&
+    typeof msg === "object" &&
+    "message" in msg &&
+    (msg as NestedMessage).message != null &&
+    typeof (msg as NestedMessage).message === "object"
+  );
 }
 
 // Re-export PRICING for backward compatibility
@@ -49,12 +53,6 @@ interface SessionTotals {
 }
 
 export class UsageCalculator {
-  // private pricing: typeof PRICING;
-
-  constructor() {
-    // this.pricing = PRICING;
-  }
-
   calculateCost(usage: TokenUsage | null | undefined, model: string): CostCalculation {
     if (!usage) {
       return {
@@ -64,24 +62,24 @@ export class UsageCalculator {
         inputTokens: 0,
         outputTokens: 0,
         cacheTokens: 0,
-        totalTokens: 0
+        totalTokens: 0,
       };
     }
-    
+
     const pricing = getModelPricing(model);
-    
+
     // Convert to numbers, treat invalid values as 0
     const inputTokens = Number(usage.input_tokens) || 0;
     const outputTokens = Number(usage.output_tokens) || 0;
     const cacheReadTokens = Number(usage.cache_read_input_tokens) || 0;
     const cacheCreationTokens = Number(usage.cache_creation_input_tokens) || 0;
-    
+
     // Cache tokens cost 10% of input token price
-    const effectiveInputTokens = inputTokens + cacheCreationTokens + (cacheReadTokens * 0.1);
-    
+    const effectiveInputTokens = inputTokens + cacheCreationTokens + cacheReadTokens * 0.1;
+
     const inputCost = (effectiveInputTokens / 1_000_000) * pricing.input;
     const outputCost = (outputTokens / 1_000_000) * pricing.output;
-    
+
     return {
       inputCost,
       outputCost,
@@ -91,7 +89,7 @@ export class UsageCalculator {
       cacheTokens: cacheReadTokens,
       cacheCreationTokens,
       // Include all tokens for context window calculation
-      totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens
+      totalTokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
     };
   }
 
@@ -105,12 +103,12 @@ export class UsageCalculator {
 
     // Handle edge cases for invalid inputs as expected by tests
     if (messages === null || messages === undefined) {
-      throw new Error('Messages cannot be null or undefined');
+      throw new Error("Messages cannot be null or undefined");
     }
-    
+
     if (!Array.isArray(messages)) {
       // Test expects non-arrays to throw, except for strings which should be handled gracefully
-      if (typeof messages === 'string') {
+      if (typeof messages === "string") {
         // String is iterable but won't have valid message structure
         return {
           totalInputTokens: 0,
@@ -120,37 +118,39 @@ export class UsageCalculator {
           totalTokens: 0,
           totalCost: 0,
           turns: 0,
-          averageTokensPerTurn: 0
+          averageTokensPerTurn: 0,
         };
       } else {
-        throw new Error('Messages must be an array');
+        throw new Error("Messages must be an array");
       }
     }
 
     // Normalize messages structure to handle different test formats
-    const normalizedMessages = messages.map(msg => {
-      // Handle nested message structure from tests
-      if (isNestedMessage(msg)) {
-        const nestedMsg = msg.message;
-        return {
-          role: nestedMsg.role,
-          content: nestedMsg.content,
-          usage: nestedMsg.usage
-        };
-      }
-      // Handle direct message structure
-      return msg;
-    }).filter(msg => msg && msg.role);
+    const normalizedMessages = messages
+      .map((msg) => {
+        // Handle nested message structure from tests
+        if (isNestedMessage(msg)) {
+          const nestedMsg = msg.message;
+          return {
+            role: nestedMsg.role,
+            content: nestedMsg.content,
+            usage: nestedMsg.usage,
+          };
+        }
+        // Handle direct message structure
+        return msg;
+      })
+      .filter((msg) => msg?.role);
 
     for (const message of normalizedMessages) {
       // Count assistant messages as turns regardless of usage data
-      if (message?.role === 'assistant') {
+      if (message?.role === "assistant") {
         turns++;
       }
-      
+
       if (message?.usage) {
         const cost = this.calculateCost(message.usage, model);
-        
+
         totalInputTokens += cost.inputTokens;
         totalOutputTokens += cost.outputTokens;
         totalCacheCreationTokens += cost.cacheCreationTokens || 0;
@@ -171,7 +171,10 @@ export class UsageCalculator {
       totalTokens: totalInputTokens + totalOutputTokens + totalCacheCreationTokens + totalCacheReadTokens,
       totalCost,
       turns,
-      averageTokensPerTurn: turns > 0 ? Math.round((totalInputTokens + totalOutputTokens + totalCacheCreationTokens + totalCacheReadTokens) / turns) : 0
+      averageTokensPerTurn:
+        turns > 0
+          ? Math.round((totalInputTokens + totalOutputTokens + totalCacheCreationTokens + totalCacheReadTokens) / turns)
+          : 0,
     };
   }
 
@@ -194,7 +197,7 @@ export class UsageCalculator {
 
   estimateRemainingTurns(currentTokens: number, contextWindow: number, averageTokensPerTurn: number): number {
     if (averageTokensPerTurn === 0) return Infinity;
-    
+
     // currentTokens should include the latest cache tokens (not accumulated)
     const remainingTokens = contextWindow - currentTokens;
     return Math.floor(remainingTokens / averageTokensPerTurn);

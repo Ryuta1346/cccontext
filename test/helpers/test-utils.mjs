@@ -1,6 +1,6 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 /**
  * テスト用のユーティリティ関数とモックオブジェクト
@@ -8,12 +8,13 @@ import os from 'node:os';
 
 // ANSIエスケープコードを除去
 export function stripAnsi(str) {
-  return str.replace(/\u001b\[[0-9;]*m/g, '');
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape codes are needed for terminal output
+  return str.replace(/\u001b\[[0-9;]*m/g, "");
 }
 
 // Create temporary directory with automatic cleanup
 export async function withTempDir(callback) {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cccontext-test-'));
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "cccontext-test-"));
   try {
     return await callback(tempDir);
   } finally {
@@ -34,7 +35,7 @@ export class MockFileSystem {
     this.files.set(filePath, {
       content,
       mtime: new Date(),
-      size: Buffer.byteLength(content)
+      size: Buffer.byteLength(content),
     });
   }
 
@@ -55,7 +56,7 @@ export class MockFileSystem {
       mtime: file.mtime,
       size: file.size,
       isFile: () => true,
-      isDirectory: () => false
+      isDirectory: () => false,
     };
   }
 
@@ -106,7 +107,7 @@ export class MockTimer {
       id,
       callback,
       triggerTime: this.currentTime + delay,
-      type: 'timeout'
+      type: "timeout",
     });
     return id;
   }
@@ -118,13 +119,13 @@ export class MockTimer {
       callback,
       triggerTime: this.currentTime + interval,
       interval,
-      type: 'interval'
+      type: "interval",
     });
     return id;
   }
 
   clearTimeout(id) {
-    this.timers = this.timers.filter(timer => timer.id !== id);
+    this.timers = this.timers.filter((timer) => timer.id !== id);
   }
 
   clearInterval(id) {
@@ -133,15 +134,15 @@ export class MockTimer {
 
   tick(ms) {
     this.currentTime += ms;
-    const triggeredTimers = this.timers.filter(timer => timer.triggerTime <= this.currentTime);
-    
+    const triggeredTimers = this.timers.filter((timer) => timer.triggerTime <= this.currentTime);
+
     for (const timer of triggeredTimers) {
       timer.callback();
-      
-      if (timer.type === 'interval') {
+
+      if (timer.type === "interval") {
         timer.triggerTime += timer.interval;
       } else {
-        this.timers = this.timers.filter(t => t.id !== timer.id);
+        this.timers = this.timers.filter((t) => t.id !== timer.id);
       }
     }
   }
@@ -154,14 +155,14 @@ export class MockTimer {
 // Session data factory
 export function createMockSessionData(overrides = {}) {
   return {
-    sessionId: 'test-session-' + Math.random().toString(36).substr(2, 9),
-    model: 'claude-3-5-sonnet-20241022',
+    sessionId: `test-session-${Math.random().toString(36).substr(2, 9)}`,
+    model: "claude-3-5-sonnet-20241022",
     messages: [],
     totalTokens: 0,
     totalCost: 0,
     turns: 0,
     startTime: new Date(),
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -171,42 +172,42 @@ export function createMockMessage(role, tokens = {}, overrides = {}) {
     timestamp: new Date().toISOString(),
     message: {
       role,
-      model: 'claude-3-5-sonnet-20241022',
+      model: "claude-3-5-sonnet-20241022",
       usage: {
         input_tokens: tokens.input || 0,
         output_tokens: tokens.output || 0,
-        cache_read_input_tokens: tokens.cache || 0
+        cache_read_input_tokens: tokens.cache || 0,
       },
-      ...overrides
-    }
+      ...overrides,
+    },
   };
 }
 
 // コンテキスト情報のファクトリー
 export function createMockContextInfo(overrides = {}) {
   return {
-    sessionId: 'test-session',
-    modelName: 'Claude 3.5 Sonnet',
+    sessionId: "test-session",
+    modelName: "Claude 3.5 Sonnet",
     usagePercentage: 50,
     totalTokens: 100000,
     contextWindow: 200000,
     remainingTokens: 100000,
     remainingPercentage: 50,
-    totalCost: 1.50,
+    totalCost: 1.5,
     turns: 10,
     averageTokensPerTurn: 10000,
     estimatedRemainingTurns: 10,
-    warningLevel: 'normal',
-    duration: '1h 30m',
+    warningLevel: "normal",
+    duration: "1h 30m",
     latestTurn: {
       input: 1000,
       output: 2000,
       cache: 500,
       total: 3000,
-      percentage: 1.5
+      percentage: 1.5,
     },
-    latestPrompt: 'Test prompt',
-    ...overrides
+    latestPrompt: "Test prompt",
+    ...overrides,
   };
 }
 
@@ -241,7 +242,7 @@ export class MockEventEmitter {
   }
 
   getEmitHistory(event) {
-    return this.emitHistory.filter(h => h.event === event);
+    return this.emitHistory.filter((h) => h.event === event);
   }
 
   clear() {
@@ -254,21 +255,21 @@ export class MockEventEmitter {
 export function mockProcess() {
   const originalExit = process.exit;
   const originalOn = process.on;
-  
+
   const exitCalls = [];
   const eventHandlers = new Map();
-  
+
   process.exit = (code) => {
     exitCalls.push(code);
   };
-  
+
   process.on = (event, handler) => {
     if (!eventHandlers.has(event)) {
       eventHandlers.set(event, []);
     }
     eventHandlers.get(event).push(handler);
   };
-  
+
   return {
     restore() {
       process.exit = originalExit;
@@ -282,6 +283,6 @@ export function mockProcess() {
       for (const handler of handlers) {
         handler(...args);
       }
-    }
+    },
   };
 }

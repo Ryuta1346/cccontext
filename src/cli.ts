@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
-import { program } from 'commander';
-import { SessionWatcher } from './monitor/session-watcher.js';
-import { ContextTracker } from './monitor/context-tracker.js';
-import { LiveView } from './display/live-view.js';
-import { SessionsLiveView } from './display/sessions-live-view.js';
-import { UsageCalculator } from './monitor/usage-calculator.js';
-import { EnhancedSessionsManager } from './monitor/enhanced-sessions-manager.js';
-import type { SessionData } from './types/index.js';
+import { program } from "commander";
+import { LiveView } from "./display/live-view.js";
+import { SessionsLiveView } from "./display/sessions-live-view.js";
+import { ContextTracker } from "./monitor/context-tracker.js";
+import { EnhancedSessionsManager } from "./monitor/enhanced-sessions-manager.js";
+import { SessionWatcher } from "./monitor/session-watcher.js";
+import { UsageCalculator } from "./monitor/usage-calculator.js";
+import type { SessionData } from "./types/index.js";
 
 // ContextInfo型を定義（monitor/context-tracker.tsから参照）
 interface ContextInfo {
@@ -26,7 +26,7 @@ interface ContextInfo {
   turns: number;
   averageTokensPerTurn: number;
   estimatedRemainingTurns: number;
-  warningLevel: 'normal' | 'warning' | 'severe' | 'critical';
+  warningLevel: "normal" | "warning" | "severe" | "critical";
   startTime?: number | string | Date;
   lastUpdate: Date;
   latestPrompt?: string;
@@ -45,10 +45,11 @@ interface ContextInfo {
     autoCompactThreshold?: number;
   };
 }
-import chalk from 'chalk';
-import stringWidth from 'string-width';
-import fs from 'fs';
-import path from 'path';
+
+import chalk from "chalk";
+import fs from "fs";
+import path from "path";
+import stringWidth from "string-width";
 
 interface CLIOptions {
   live?: boolean;
@@ -94,7 +95,6 @@ interface ActiveSession {
   filePath: string;
 }
 
-
 class CCContextCLI {
   private watcher: SessionWatcher;
   private tracker: ContextTracker;
@@ -115,40 +115,40 @@ class CCContextCLI {
   }
 
   async monitorLive(options: CLIOptions): Promise<void> {
-    console.log(chalk.cyan('🔍 Starting Claude Code Context Monitor...'));
-    
+    console.log(chalk.cyan("🔍 Starting Claude Code Context Monitor..."));
+
     // Initialize live view
     this.view = new LiveView();
     this.view.init();
 
     try {
       let sessionToMonitor: ActiveSession | null;
-      
+
       // Session selection processing
       if (options.session) {
         // Resolve specified session ID or sequence number
         const resolvedSessionId = await this.resolveSessionIdentifier(options.session);
-        
+
         // Search for session file
         const files = await this.watcher.getAllJsonlFiles();
-        const sessionFile = files.find(f => path.basename(f, '.jsonl') === resolvedSessionId);
-        
+        const sessionFile = files.find((f) => path.basename(f, ".jsonl") === resolvedSessionId);
+
         if (!sessionFile) {
           this.view.showError(`Session not found: ${options.session}`);
           setTimeout(() => process.exit(1), 3000);
           return;
         }
-        
+
         sessionToMonitor = {
           sessionId: resolvedSessionId,
-          filePath: sessionFile
+          filePath: sessionFile,
         };
       } else {
         // Search for active session
         sessionToMonitor = await this.watcher.findActiveSession();
-        
+
         if (!sessionToMonitor) {
-          this.view.showError('No active Claude Code sessions found.');
+          this.view.showError("No active Claude Code sessions found.");
           setTimeout(() => process.exit(1), 3000);
           return;
         }
@@ -158,21 +158,21 @@ class CCContextCLI {
       this.view.showMessage(`Monitoring session: ${sessionToMonitor.sessionId}`);
 
       // Setup event handlers
-      this.watcher.on('session-data', (sessionData: SessionData) => {
+      this.watcher.on("session-data", (sessionData: SessionData) => {
         const contextInfo = this.tracker.updateSession(sessionData);
         if (this.view) {
           this.view.updateContextInfo(contextInfo);
         }
       });
 
-      this.watcher.on('message', ({ sessionData }: { sessionData: SessionData }) => {
+      this.watcher.on("message", ({ sessionData }: { sessionData: SessionData }) => {
         const contextInfo = this.tracker.updateSession(sessionData);
         if (this.view) {
           this.view.updateContextInfo(contextInfo);
         }
       });
 
-      this.watcher.on('error', ({ sessionId, error }: { sessionId: string; error: Error }) => {
+      this.watcher.on("error", ({ sessionId, error }: { sessionId: string; error: Error }) => {
         if (this.view) {
           this.view.showError(`Error in session ${sessionId}: ${error.message}`);
         }
@@ -182,9 +182,8 @@ class CCContextCLI {
       await this.watcher.watchSession(sessionToMonitor.sessionId, sessionToMonitor.filePath);
 
       // Cleanup on process exit
-      process.on('SIGINT', () => this.cleanup());
-      process.on('SIGTERM', () => this.cleanup());
-
+      process.on("SIGINT", () => this.cleanup());
+      process.on("SIGTERM", () => this.cleanup());
     } catch (error) {
       console.error(chalk.red(`Error: ${(error as Error).message}`));
       this.cleanup();
@@ -193,8 +192,8 @@ class CCContextCLI {
   }
 
   async showSessions(options: CLIOptions): Promise<void> {
-    console.log(chalk.cyan('🔍 Loading Claude Code Sessions...'));
-    
+    console.log(chalk.cyan("🔍 Loading Claude Code Sessions..."));
+
     // Initialize live view
     this.sessionsView = new SessionsLiveView();
     this.sessionsView.init();
@@ -205,36 +204,36 @@ class CCContextCLI {
 
       // Collect information for each session file
       for (const file of files) {
-        const sessionId = path.basename(file, '.jsonl');
+        const sessionId = path.basename(file, ".jsonl");
         const stats = await fs.promises.stat(file);
-        
+
         // monitor --liveと同じ方法でセッションデータを読み込む
         const tempWatcher = new SessionWatcher();
-        
+
         let sessionData: SessionData | null = null;
-        tempWatcher.once('session-data', (data: SessionData) => {
+        tempWatcher.once("session-data", (data: SessionData) => {
           sessionData = data;
         });
-        
+
         await tempWatcher.readExistingData(sessionId, file, false);
-        
+
         if (sessionData) {
           const contextInfo = this.tracker.updateSession(sessionData);
           const safeSessionData = sessionData as SessionData; // TypeScript 非同期パターン対応
-          
+
           sessions.push({
             sessionId,
             file,
             lastModified: stats.mtime,
             size: stats.size,
-            model: safeSessionData.model || 'unknown',
+            model: safeSessionData.model || "unknown",
             modelName: contextInfo.modelName,
             turns: safeSessionData.turns || 0,
             totalTokens: safeSessionData.totalTokens || 0,
             totalCost: contextInfo.totalCost,
             usagePercentage: contextInfo.usagePercentage,
             latestPrompt: safeSessionData.latestPrompt,
-            autoCompact: contextInfo.autoCompact
+            autoCompact: contextInfo.autoCompact,
           });
         }
       }
@@ -252,15 +251,15 @@ class CCContextCLI {
 
       // SessionsLiveViewで表示
       this.sessionsView.updateSessions(displaySessions);
-      
+
       // Cleanup on process exit
-      process.on('SIGINT', () => {
+      process.on("SIGINT", () => {
         if (this.sessionsView) {
           this.sessionsView.destroy();
         }
         process.exit(0);
       });
-      process.on('SIGTERM', () => {
+      process.on("SIGTERM", () => {
         if (this.sessionsView) {
           this.sessionsView.destroy();
         }
@@ -271,7 +270,6 @@ class CCContextCLI {
       await new Promise<void>(() => {
         // Promise never resolves (wait until user presses q or Ctrl+C)
       });
-
     } catch (error) {
       console.error(chalk.red(`Error: ${(error as Error).message}`));
       if (this.sessionsView) {
@@ -286,9 +284,9 @@ class CCContextCLI {
     const safePercentage = Math.max(0, Math.min(100, percentage || 0));
     const filled = Math.max(0, Math.min(width, Math.round((safePercentage / 100) * width)));
     const empty = Math.max(0, width - filled);
-    
-    const color: 'red' | 'yellow' | 'green' = safePercentage >= 80 ? 'red' : safePercentage >= 60 ? 'yellow' : 'green';
-    return chalk[color]('█'.repeat(filled)) + chalk.gray('░'.repeat(empty));
+
+    const color: "red" | "yellow" | "green" = safePercentage >= 80 ? "red" : safePercentage >= 60 ? "yellow" : "green";
+    return chalk[color]("█".repeat(filled)) + chalk.gray("░".repeat(empty));
   }
 
   private formatAge(date: Date): string {
@@ -304,37 +302,38 @@ class CCContextCLI {
   }
 
   private formatPromptForList(prompt?: string): string {
-    if (!prompt) return '';
-    
+    if (!prompt) return "";
+
     const maxLength = 60;
-    const cleanPrompt = prompt.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-    
+    const cleanPrompt = prompt.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
+
     // string-widthを使用して正確な表示幅を計算
-    let result = '';
+    let result = "";
     let currentWidth = 0;
-    
+
     // UTF-16サロゲートペアを適切に処理するためにArray.fromを使用
     const chars = Array.from(cleanPrompt);
-    
+
     for (const char of chars) {
       const charWidth = stringWidth(char);
-      
-      if (currentWidth + charWidth > maxLength - 3) { // '...'の分を考慮
-        result += '...';
+
+      if (currentWidth + charWidth > maxLength - 3) {
+        // '...'の分を考慮
+        result += "...";
         break;
       }
-      
+
       result += char;
       currentWidth += charWidth;
     }
-    
+
     return result;
   }
 
   // private formatUsage(percentage: number): string {
   //   // percentageがundefinedまたはnullの場合のデフォルト値
   //   const safePercentage = Math.max(0, Math.min(100, percentage ?? 0));
-  //   
+  //
   //   const bar = this.createMiniProgressBar(safePercentage);
   //   const percentStr = safePercentage.toFixed(1) + '%';
   //   return `[${bar}] ${chalk.cyan(percentStr.padStart(5))}`;
@@ -344,16 +343,16 @@ class CCContextCLI {
   //   if (!autoCompact?.enabled) {
   //     return chalk.gray('N/A');
   //   }
-  // 
+  //
   //   const { remainingPercentage, thresholdPercentage, warningLevel } = autoCompact;
-  //   
+  //
   //   if (remainingPercentage <= 0) {
   //     return chalk.red('ACTIVE!');
   //   }
-  //   
+  //
   //   // 残り容量を % で表示
   //   const percentStr = remainingPercentage.toFixed(1) + '%';
-  //   
+  //
   //   // 警告レベルに応じた表示
   //   switch (warningLevel) {
   //     case 'critical':
@@ -377,16 +376,16 @@ class CCContextCLI {
     if (!/^\d+$/.test(identifier)) {
       throw new Error(`Invalid session number: ${identifier}. Please specify a number from the list.`);
     }
-    
+
     const position = parseInt(identifier);
     const files = await this.watcher.getAllJsonlFiles();
-    
+
     // Sort files by last update time
     const sortedFiles = await this.getSortedFilesByMtime(files);
-    
+
     if (position > 0 && position <= sortedFiles.length) {
       const selectedFile = sortedFiles[position - 1];
-      return path.basename(selectedFile!, '.jsonl');
+      return path.basename(selectedFile ?? "", ".jsonl");
     } else {
       throw new Error(`Invalid session number: ${position}. Valid range is 1-${sortedFiles.length}`);
     }
@@ -400,29 +399,29 @@ class CCContextCLI {
 
       // Collect information for each session file
       for (const file of files) {
-        const sessionId = path.basename(file, '.jsonl');
+        const sessionId = path.basename(file, ".jsonl");
         const stats = await fs.promises.stat(file);
-        
+
         // Load session data
         const tempWatcher = new SessionWatcher();
-        
+
         let sessionData: SessionData | null = null;
-        tempWatcher.once('session-data', (data: SessionData) => {
+        tempWatcher.once("session-data", (data: SessionData) => {
           sessionData = data;
         });
-        
+
         await tempWatcher.readExistingData(sessionId, file, false);
-        
+
         if (sessionData) {
           const safeSessionData = sessionData as SessionData; // TypeScript 非同期パターン対応
           sessions.push({
             sessionId,
             file,
             lastModified: stats.mtime,
-            model: safeSessionData.model || 'unknown',
+            model: safeSessionData.model || "unknown",
             turns: safeSessionData.turns || 0,
             totalTokens: safeSessionData.totalTokens || 0,
-            latestPrompt: safeSessionData.latestPrompt
+            latestPrompt: safeSessionData.latestPrompt,
           });
         }
       }
@@ -435,24 +434,30 @@ class CCContextCLI {
       });
 
       if (sessions.length === 0) {
-        console.log(chalk.yellow('No sessions found.'));
+        console.log(chalk.yellow("No sessions found."));
         process.exit(0);
       }
 
-      console.log(chalk.cyan('\nActive Sessions'));
-      console.log(chalk.gray('━'.repeat(100)));
-      
+      console.log(chalk.cyan("\nActive Sessions"));
+      console.log(chalk.gray("━".repeat(100)));
+
       // Header row
       console.log(
-        chalk.gray('No.') + '  ' +
-        chalk.gray('Session ID') + '  ' +
-        chalk.gray('Usage') + '           ' +
-        chalk.gray('Model') + '            ' +
-        chalk.gray('Turns') + '   ' +
-        chalk.gray('Age') + '      ' +
-        chalk.gray('Latest Prompt')
+        chalk.gray("No.") +
+          "  " +
+          chalk.gray("Session ID") +
+          "  " +
+          chalk.gray("Usage") +
+          "           " +
+          chalk.gray("Model") +
+          "            " +
+          chalk.gray("Turns") +
+          "   " +
+          chalk.gray("Age") +
+          "      " +
+          chalk.gray("Latest Prompt"),
       );
-      console.log(chalk.gray('━'.repeat(100)));
+      console.log(chalk.gray("━".repeat(100)));
 
       // Limit number of displayed items
       const displaySessions = sessions.slice(0, limit);
@@ -462,41 +467,40 @@ class CCContextCLI {
         const modelName = this.calculator.getModelName(session.model);
         const contextWindow = this.tracker.getContextWindow(session.model);
         const usage = (session.totalTokens / contextWindow) * 100;
-        const formattedPrompt = session.latestPrompt ? this.formatPromptForList(session.latestPrompt) : '';
-        
+        const formattedPrompt = session.latestPrompt ? this.formatPromptForList(session.latestPrompt) : "";
+
         // Number (3 characters)
         const num = chalk.yellow((index + 1).toString().padEnd(3));
-        
+
         // Session ID (10 characters)
         const sessionId = chalk.white(session.sessionId);
-        
+
         // Usage rate and progress bar (15 characters)
         const progressBar = this.createMiniProgressBar(usage);
-        const usageStr = `[${progressBar}] ${chalk.cyan(usage.toFixed(1).padStart(5) + '%')}`;
-        
+        const usageStr = `[${progressBar}] ${chalk.cyan(`${usage.toFixed(1).padStart(5)}%`)}`;
+
         // Model name (15 characters)
         const model = chalk.blue(modelName.padEnd(15));
-        
+
         // Turn count (7 characters)
-        const turns = chalk.green((session.turns + ' turns').padEnd(7));
-        
+        const turns = chalk.green(`${session.turns} turns`.padEnd(7));
+
         // Elapsed time (8 characters)
         const ageStr = chalk.magenta(age.padEnd(8));
-        
+
         // Latest prompt
         const prompt = chalk.dim(formattedPrompt);
-        
+
         console.log(`${num} ${sessionId} ${usageStr} ${model} ${turns} ${ageStr} ${prompt}`);
       });
 
-      console.log(chalk.gray('━'.repeat(100)));
+      console.log(chalk.gray("━".repeat(100)));
       if (sessions.length > limit) {
         console.log(chalk.gray(`Total sessions: ${sessions.length} (showing ${limit})`));
       } else {
         console.log(chalk.gray(`Total sessions: ${sessions.length}`));
       }
-      console.log(chalk.gray('\nUsage: cccontext -s <number>'))
-
+      console.log(chalk.gray("\nUsage: cccontext -s <number>"));
     } catch (error) {
       console.error(chalk.red(`Error: ${(error as Error).message}`));
       process.exit(1);
@@ -505,13 +509,13 @@ class CCContextCLI {
 
   async clearCache(): Promise<void> {
     try {
-      console.log(chalk.yellow('🗑️  Clearing session cache...'));
-      
+      console.log(chalk.yellow("🗑️  Clearing session cache..."));
+
       // EnhancedSessionsManagerを使用してキャッシュをクリア
       const manager = new EnhancedSessionsManager();
       manager.clearCache();
-      console.log(chalk.green('✅ Session cache cleared successfully'));
-      
+      console.log(chalk.green("✅ Session cache cleared successfully"));
+
       process.exit(0);
     } catch (error) {
       console.error(chalk.red(`Error clearing cache: ${(error as Error).message}`));
@@ -520,8 +524,8 @@ class CCContextCLI {
   }
 
   async showSessionsLive(options: CLIOptions): Promise<void> {
-    console.log(chalk.cyan('🔍 Starting Claude Code Sessions Monitor...'));
-    
+    console.log(chalk.cyan("🔍 Starting Claude Code Sessions Monitor..."));
+
     // Initialize live view
     this.sessionsView = new SessionsLiveView();
     this.sessionsView.init();
@@ -530,43 +534,43 @@ class CCContextCLI {
       // Get all session files
       const files = await this.watcher.getAllJsonlFiles();
       const limit = parseInt(String(options.limit));
-      
+
       // Process from newest files first
       const sortedFiles = await this.getSortedFilesByMtime(files);
       const filesToWatch = sortedFiles.slice(0, limit);
-      
+
       // Initial session list
       const sessions: SessionWithContext[] = [];
-      
+
       // Start watchSession for each session
       for (const file of filesToWatch) {
-        const sessionId = path.basename(file, '.jsonl');
+        const sessionId = path.basename(file, ".jsonl");
         const stats = await fs.promises.stat(file);
-        
+
         // Create individual SessionWatcher instance
         const sessionWatcher = new SessionWatcher();
-        
+
         // Setup event handlers
-        sessionWatcher.on('session-data', (sessionData: SessionData) => {
+        sessionWatcher.on("session-data", (sessionData: SessionData) => {
           const contextInfo = this.tracker.updateSession(sessionData);
           this.updateSessionInView(sessionId, sessionData, contextInfo, stats.mtime);
         });
-        
-        sessionWatcher.on('message', ({ sessionData }: { sessionData: SessionData }) => {
+
+        sessionWatcher.on("message", ({ sessionData }: { sessionData: SessionData }) => {
           const contextInfo = this.tracker.updateSession(sessionData);
           this.updateSessionInView(sessionId, sessionData, contextInfo, new Date());
         });
-        
-        sessionWatcher.on('error', ({ error }: { error: Error }) => {
+
+        sessionWatcher.on("error", ({ error }: { error: Error }) => {
           if (options.debug) {
             console.error(`[DEBUG] Error in session ${sessionId}: ${error.message}`);
           }
         });
-        
+
         // watchSessionを開始
         await sessionWatcher.watchSession(sessionId, file);
         this.watchedSessions.set(sessionId, sessionWatcher);
-        
+
         // Get initial data and add to session list
         const sessionData = sessionWatcher.getSessionData(sessionId);
         if (sessionData) {
@@ -583,31 +587,30 @@ class CCContextCLI {
             totalCost: contextInfo.totalCost,
             usagePercentage: contextInfo.usagePercentage,
             latestPrompt: sessionData.latestPrompt,
-            autoCompact: contextInfo.autoCompact
+            autoCompact: contextInfo.autoCompact,
           });
         }
       }
-      
+
       // Initial display
       if (this.sessionsView) {
         this.sessionsView.updateSessions(sessions);
       }
-      
+
       // Directory monitoring (for adding/removing new sessions)
       await this.watcher.startDirectoryWatch();
-      
-      this.watcher.on('session-added', async ({ sessionId, filePath }: { sessionId: string; filePath: string }) => {
+
+      this.watcher.on("session-added", async ({ sessionId, filePath }: { sessionId: string; filePath: string }) => {
         await this.addSessionWatch(sessionId, filePath, options);
       });
-      
-      this.watcher.on('session-removed', ({ sessionId }: { sessionId: string }) => {
+
+      this.watcher.on("session-removed", ({ sessionId }: { sessionId: string }) => {
         this.removeSessionWatch(sessionId);
       });
-      
-      // Cleanup on process exit
-      process.on('SIGINT', () => this.cleanup());
-      process.on('SIGTERM', () => this.cleanup());
 
+      // Cleanup on process exit
+      process.on("SIGINT", () => this.cleanup());
+      process.on("SIGTERM", () => this.cleanup());
     } catch (error) {
       console.error(chalk.red(`Error: ${(error as Error).message}`));
       this.cleanup();
@@ -616,73 +619,72 @@ class CCContextCLI {
   }
 
   async showSessionsLiveEnhanced(options: CLIOptions): Promise<void> {
-    console.log(chalk.cyan('🔍 Starting Enhanced Claude Code Sessions Monitor...'));
-    
+    console.log(chalk.cyan("🔍 Starting Enhanced Claude Code Sessions Monitor..."));
+
     // Setup debug mode
-    const debugMode = process.env.DEBUG === '1' || options.debug;
+    const debugMode = process.env.DEBUG === "1" || options.debug;
     this.sessionsManager.setDebugMode(debugMode || false);
-    
+
     if (debugMode) {
-      console.log(chalk.yellow('🐛 Debug mode enabled'));
+      console.log(chalk.yellow("🐛 Debug mode enabled"));
     }
-    
+
     // Initialize live view
     this.sessionsView = new SessionsLiveView();
     this.sessionsView.init();
-    
+
     try {
       // Setup event listeners first
       // Session loading completed event
-      this.sessionsManager.on('sessions-loaded', (sessions: SessionWithContext[]) => {
+      this.sessionsManager.on("sessions-loaded", (sessions: SessionWithContext[]) => {
         if (debugMode) {
           console.error(`[CLI] Sessions loaded event received: ${sessions.length} sessions`);
         }
-        
+
         const limit = parseInt(String(options.limit || 20));
         const displaySessions = sessions.slice(0, limit);
-        
+
         if (debugMode) {
           console.error(`[CLI] Updating view with ${displaySessions.length} sessions`);
           if (displaySessions.length > 0) {
             console.error(`[CLI] First session sample:`, JSON.stringify(displaySessions[0], null, 2));
           }
         }
-        
+
         if (this.sessionsView) {
           this.sessionsView.updateSessions(displaySessions);
           this.sessionsView.render();
         }
       });
-      
+
       // Session update event (real-time)
-      this.sessionsManager.on('sessions-updated', (sessions: SessionWithContext[]) => {
+      this.sessionsManager.on("sessions-updated", (sessions: SessionWithContext[]) => {
         const limit = parseInt(String(options.limit || 20));
         const displaySessions = sessions.slice(0, limit);
         if (this.sessionsView) {
           this.sessionsView.updateSessions(displaySessions);
         }
-        
+
         if (debugMode) {
           const stats = this.sessionsManager.getCacheStats();
           console.error(`[CLI] Update: ${sessions.length} sessions, cache: ${stats.cachedSessions}`);
         }
       });
-      
+
       // Initialize enhanced session manager (after event listener setup)
       await this.sessionsManager.initialize();
-      
+
       // Cleanup on process exit
       const cleanup = () => {
-        console.log(chalk.cyan('\n🔄 Shutting down sessions monitor...'));
+        console.log(chalk.cyan("\n🔄 Shutting down sessions monitor..."));
         this.cleanup();
       };
-      
-      process.on('SIGINT', cleanup);
-      process.on('SIGTERM', cleanup);
-      
+
+      process.on("SIGINT", cleanup);
+      process.on("SIGTERM", cleanup);
+
       // Update status bar to show event-driven operation
       this.updateStatusBarForEventDriven();
-      
     } catch (error) {
       console.error(chalk.red(`Error: ${(error as Error).message}`));
       this.cleanup();
@@ -692,12 +694,19 @@ class CCContextCLI {
 
   private updateStatusBarForEventDriven(): void {
     // StatusBarの更新（内部プロパティへの安全なアクセス）
-    if (this.sessionsView && 'boxes' in this.sessionsView && this.sessionsView.boxes && 
-        'statusBar' in this.sessionsView.boxes && this.sessionsView.boxes.statusBar) {
-      if ('setContent' in this.sessionsView.boxes.statusBar && 
-          typeof (this.sessionsView.boxes.statusBar as { setContent?: unknown }).setContent === 'function') {
+    if (
+      this.sessionsView &&
+      "boxes" in this.sessionsView &&
+      this.sessionsView.boxes &&
+      "statusBar" in this.sessionsView.boxes &&
+      this.sessionsView.boxes.statusBar
+    ) {
+      if (
+        "setContent" in this.sessionsView.boxes.statusBar &&
+        typeof (this.sessionsView.boxes.statusBar as { setContent?: unknown }).setContent === "function"
+      ) {
         (this.sessionsView.boxes.statusBar as { setContent: (content: string) => void }).setContent(
-          '[Live] Event-driven updates (↑↓: navigate, q: exit, r: refresh)'
+          "[Live] Event-driven updates (↑↓: navigate, q: exit, r: refresh)",
         );
       }
     }
@@ -708,18 +717,25 @@ class CCContextCLI {
       files.map(async (file) => {
         const stats = await fs.promises.stat(file);
         return { file, mtime: stats.mtime };
-      })
+      }),
     );
-    
+
     filesWithStats.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
-    return filesWithStats.map(f => f.file);
+    return filesWithStats.map((f) => f.file);
   }
 
-  private updateSessionInView(sessionId: string, sessionData: SessionData, contextInfo: ContextInfo, lastModified: Date | number): void {
+  private updateSessionInView(
+    sessionId: string,
+    sessionData: SessionData,
+    contextInfo: ContextInfo,
+    lastModified: Date | number,
+  ): void {
     // Get current displayed session list
-    const currentSessions = this.sessionsView && 'sessions' in this.sessionsView ? 
-      (this.sessionsView as { sessions: SessionWithContext[] }).sessions : [];
-    
+    const currentSessions =
+      this.sessionsView && "sessions" in this.sessionsView
+        ? (this.sessionsView as { sessions: SessionWithContext[] }).sessions
+        : [];
+
     // Update corresponding session
     const updatedSessions = currentSessions.map((session: SessionWithContext) => {
       if (session.sessionId === sessionId) {
@@ -733,19 +749,19 @@ class CCContextCLI {
           usagePercentage: contextInfo.usagePercentage,
           latestPrompt: sessionData.latestPrompt,
           lastModified: lastModified,
-          autoCompact: contextInfo.autoCompact
+          autoCompact: contextInfo.autoCompact,
         };
       }
       return session;
     });
-    
+
     // Add session if it doesn't exist
     if (!updatedSessions.find((s: SessionWithContext) => s.sessionId === sessionId)) {
       // For new sessions, file and size are unknown so set default values
       updatedSessions.push({
         sessionId,
-        file: '', // File path unknown
-        size: 0,  // File size unknown
+        file: "", // File path unknown
+        size: 0, // File size unknown
         model: sessionData.model,
         modelName: contextInfo.modelName,
         turns: sessionData.turns,
@@ -754,10 +770,10 @@ class CCContextCLI {
         usagePercentage: contextInfo.usagePercentage,
         latestPrompt: sessionData.latestPrompt,
         lastModified: lastModified,
-        autoCompact: contextInfo.autoCompact
+        autoCompact: contextInfo.autoCompact,
       });
     }
-    
+
     // Sort and update display
     updatedSessions.sort((a: SessionWithContext, b: SessionWithContext) => {
       const aTime = a.lastModified instanceof Date ? a.lastModified.getTime() : a.lastModified;
@@ -771,25 +787,25 @@ class CCContextCLI {
 
   async addSessionWatch(sessionId: string, filePath: string, options: CLIOptions): Promise<void> {
     if (this.watchedSessions.has(sessionId)) return;
-    
+
     const sessionWatcher = new SessionWatcher();
-    
-    sessionWatcher.on('session-data', (sessionData: SessionData) => {
+
+    sessionWatcher.on("session-data", (sessionData: SessionData) => {
       const contextInfo = this.tracker.updateSession(sessionData);
       this.updateSessionInView(sessionId, sessionData, contextInfo, new Date());
     });
-    
-    sessionWatcher.on('message', ({ sessionData }: { sessionData: SessionData }) => {
+
+    sessionWatcher.on("message", ({ sessionData }: { sessionData: SessionData }) => {
       const contextInfo = this.tracker.updateSession(sessionData);
       this.updateSessionInView(sessionId, sessionData, contextInfo, new Date());
     });
-    
-    sessionWatcher.on('error', ({ error }: { error: Error }) => {
+
+    sessionWatcher.on("error", ({ error }: { error: Error }) => {
       if (options.debug) {
         console.error(`[DEBUG] Error in session ${sessionId}: ${error.message}`);
       }
     });
-    
+
     await sessionWatcher.watchSession(sessionId, filePath);
     this.watchedSessions.set(sessionId, sessionWatcher);
   }
@@ -799,10 +815,12 @@ class CCContextCLI {
     if (watcher) {
       watcher.stopWatching(sessionId);
       this.watchedSessions.delete(sessionId);
-      
+
       // Remove from view as well
-      const currentSessions = this.sessionsView && 'sessions' in this.sessionsView ? 
-      (this.sessionsView as { sessions: SessionWithContext[] }).sessions : [];
+      const currentSessions =
+        this.sessionsView && "sessions" in this.sessionsView
+          ? (this.sessionsView as { sessions: SessionWithContext[] }).sessions
+          : [];
       const updatedSessions = currentSessions.filter((s: SessionWithContext) => s.sessionId !== sessionId);
       if (this.sessionsView) {
         this.sessionsView.updateSessions(updatedSessions);
@@ -816,7 +834,7 @@ class CCContextCLI {
       watcher.stopWatching(sessionId);
     }
     this.watchedSessions.clear();
-    
+
     if (this.view) {
       this.view.destroy();
     }
@@ -835,32 +853,36 @@ class CCContextCLI {
 const cli = new CCContextCLI();
 
 program
-  .name('cccontext')
-  .description('Real-time context usage monitor for Claude Code')
-  .version('1.0.0')
+  .name("cccontext")
+  .description("Real-time context usage monitor for Claude Code")
+  .version("1.0.0")
   .exitOverride()
   .configureOutput({
-    writeOut: (str: string) => { process.stdout.write(str); },
-    writeErr: (str: string) => { process.stderr.write(str); }
+    writeOut: (str: string) => {
+      process.stdout.write(str);
+    },
+    writeErr: (str: string) => {
+      process.stderr.write(str);
+    },
   })
   .allowUnknownOption(false);
 
 program
-  .command('monitor')
-  .description('Monitor Claude Code context usage')
-  .option('-l, --live', 'Live monitoring mode (default)', true)
-  .option('-s, --session <number>', 'Monitor specific session by number from list')
+  .command("monitor")
+  .description("Monitor Claude Code context usage")
+  .option("-l, --live", "Live monitoring mode (default)", true)
+  .option("-s, --session <number>", "Monitor specific session by number from list")
   .action((options: CLIOptions) => {
     cli.monitorLive(options);
   });
 
 program
-  .command('sessions')
-  .description('List recent Claude Code sessions')
-  .option('--limit <number>', 'Number of sessions to show', '10')
-  .option('--live', 'Live monitoring mode')
-  .option('--debug', 'Enable debug mode for detailed logging')
-  .option('--clear-cache', 'Clear session cache and exit')
+  .command("sessions")
+  .description("List recent Claude Code sessions")
+  .option("--limit <number>", "Number of sessions to show", "10")
+  .option("--live", "Live monitoring mode")
+  .option("--debug", "Enable debug mode for detailed logging")
+  .option("--clear-cache", "Clear session cache and exit")
   .action((options: CLIOptions) => {
     if (options.clearCache) {
       cli.clearCache();
@@ -873,25 +895,24 @@ program
   });
 
 // Handle unknown commands
-program.on('command:*', function (operands: string[]) {
+program.on("command:*", (operands: string[]) => {
   console.error(`error: unknown command '${operands[0]}'`);
   process.exit(1);
 });
 
 // Default command (when executed without arguments)
 program
-  .option('--list', 'List all sessions for selection')
-  .option('--session <number>', 'Monitor specific session by number from list')
+  .option("--list", "List all sessions for selection")
+  .option("--session <number>", "Monitor specific session by number from list")
   .action((options: CLIOptions) => {
     // Check command line arguments
     const args = process.argv.slice(2);
     // Error if unknown command is specified
-    if (args.length > 0 && !args[0]!.startsWith('-') && 
-        !['monitor', 'sessions'].includes(args[0]!)) {
-      console.error(`error: unknown command '${args[0]!}'`);
+    if (args.length > 0 && !args[0]?.startsWith("-") && !["monitor", "sessions"].includes(args[0] ?? "")) {
+      console.error(`error: unknown command '${args[0] ?? ""}'`);
       process.exit(1);
     }
-    
+
     if (options.list) {
       cli.listSessionsForSelection({ limit: options.listLimit || 20 });
     } else {
@@ -904,9 +925,9 @@ try {
 } catch (error: unknown) {
   // CommanderのexitOverrideでhelp/version時に例外が発生
   const err = error as { code?: string };
-  if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
+  if (err.code === "commander.helpDisplayed" || err.code === "commander.version") {
     process.exit(0);
-  } else if (err.code && err.code.startsWith('commander.')) {
+  } else if (err.code?.startsWith("commander.")) {
     process.exit(1);
   } else {
     throw error;
