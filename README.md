@@ -173,13 +173,12 @@ AUTO-COMPACT ACTIVE
 
 ## Supported Models
 
-- Claude 3 Opus
+
+- Claude Opus 4.1
 - Claude Opus 4
-- Claude Opus 4.1 (Released August 2025)
-- Claude Sonnet 4 (Released May 2025)
+- Claude Sonnet 4
 - Claude 3.5 Sonnet
 - Claude 3.5 Haiku
-- Claude 3 Haiku
 
 ## Additional Information
 
@@ -195,19 +194,6 @@ cccontext --version
 cccontext --help
 cccontext sessions --help
 ```
-
-### Environment Variables
-
-- `CLAUDE_PROJECTS_DIR`: Custom path to Claude projects directory (default: `~/.claude/projects`)
-  ```bash
-  # Example: Use custom directory
-  export CLAUDE_PROJECTS_DIR="/path/to/custom/claude/projects"
-  npx cccontext
-  ```
-- `DEBUG`: Enable debug logging for troubleshooting
-  ```bash
-  DEBUG=1 npx cccontext sessions
-  ```
 
 ### Required Permissions
 

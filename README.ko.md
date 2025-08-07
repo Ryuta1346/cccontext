@@ -173,13 +173,11 @@ AUTO-COMPACT ACTIVE
 
 ## 지원 모델
 
-- Claude 3 Opus
+- Claude Opus 4.1
 - Claude Opus 4
-- Claude Opus 4.1 (2025년 8월 출시)
-- Claude Sonnet 4 (2025년 5월 출시)
+- Claude Sonnet 4
 - Claude 3.5 Sonnet
 - Claude 3.5 Haiku
-- Claude 3 Haiku
 
 ## 추가 정보
 
