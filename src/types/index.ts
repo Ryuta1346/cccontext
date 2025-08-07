@@ -12,5 +12,6 @@ export type {
   MessageContent,
   MessageUsage,
   LatestUsage,
+  MessageData,
   ModelPricing
 } from './index.d.js';

@@ -4,7 +4,7 @@ import os from 'os';
 import { EventEmitter } from 'events';
 import chokidar from 'chokidar';
 import type { FSWatcher } from 'chokidar';
-import type { SessionData } from '../types/index.js';
+import type { SessionData, MessageData } from '../types/index.js';
 
 
 interface ActiveSession {
@@ -19,7 +19,7 @@ interface ActiveSession {
 
 interface MessageEvent {
   sessionId: string;
-  data: any;
+  data: MessageData;
   sessionData: SessionData;
 }
 
@@ -478,10 +478,13 @@ export class SessionWatcher extends EventEmitter {
     }
   }
 
-  processMessage(sessionData: SessionData, data: any): void {
+  processMessage(sessionData: SessionData, data: MessageData): void {
     // Detect /compact
-    if (data.message?.content?.includes('[Previous conversation summary') || 
-        data.message?.content?.includes('Previous conversation compacted')) {
+    const contentStr = typeof data.message?.content === 'string' 
+      ? data.message.content 
+      : '';
+    if (contentStr.includes('[Previous conversation summary') || 
+        contentStr.includes('Previous conversation compacted')) {
       sessionData.isCompacted = true;
     }
     
@@ -516,7 +519,7 @@ export class SessionWatcher extends EventEmitter {
         output: outputTokens,
         cache: cacheReadTokens,
         cacheCreation: cacheCreationTokens,
-        timestamp: data.timestamp
+        timestamp: data.timestamp ? String(data.timestamp) : undefined
       };
     }
 
@@ -528,14 +531,22 @@ export class SessionWatcher extends EventEmitter {
       
       if (content) {
         sessionData.latestPrompt = content;
-        sessionData.latestPromptTime = data.timestamp;
+        sessionData.latestPromptTime = data.timestamp ? String(data.timestamp) : undefined;
       }
     }
 
-    if (!sessionData.messages) {
-      sessionData.messages = [];
+    // MessageDataをMessage形式に変換して保存
+    // contentがない場合も処理するため、空文字列をデフォルトとして使用
+    if (data.message && data.message.role) {
+      if (!sessionData.messages) {
+        sessionData.messages = [];
+      }
+      sessionData.messages.push({
+        role: data.message.role,
+        content: data.message.content ?? '',
+        usage: data.message.usage
+      });
     }
-    sessionData.messages.push(data);
   }
 
   stopWatching(sessionId: string): void {

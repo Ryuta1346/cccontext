@@ -30,6 +30,17 @@ export interface LatestUsage {
   timestamp?: string;
 }
 
+// CLIから受け取るメッセージデータの型
+export interface MessageData {
+  timestamp?: string | number;
+  message?: {
+    role?: 'user' | 'assistant' | 'system';
+    content?: MessageContent[] | string;
+    model?: string;
+    usage?: MessageUsage;
+  };
+}
+
 export interface SessionData {
   sessionId: string;
   model: string;
