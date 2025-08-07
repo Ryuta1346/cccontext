@@ -29,6 +29,11 @@ interface ErrorEvent {
 }
 
 export class SessionWatcher extends EventEmitter {
+  // メモリ管理用の定数
+  private static readonly MAX_SESSIONS = parseInt(process.env.CCCONTEXT_MAX_SESSIONS || '100', 10);
+  private static readonly SESSION_TTL_MS = parseInt(process.env.CCCONTEXT_SESSION_TTL_MS || '3600000', 10); // 1時間
+  private static readonly CLEANUP_INTERVAL_MS = parseInt(process.env.CCCONTEXT_CLEANUP_INTERVAL_MS || '600000', 10); // 10分
+
   private projectsDir: string;
   private sessions: Map<string, SessionData>;
   private watchers: Map<string, FSWatcher>;
@@ -36,6 +41,10 @@ export class SessionWatcher extends EventEmitter {
   private directoryWatcher: FSWatcher | null;
   private cachedFiles: Set<string>;
   private fileMtimes?: Map<string, number>;
+  
+  // メモリ管理用の追加プロパティ
+  private lastAccessTime: Map<string, number>;
+  private cleanupTimer: NodeJS.Timeout | null;
 
   constructor() {
     super();
@@ -55,6 +64,87 @@ export class SessionWatcher extends EventEmitter {
     this.filePositions = new Map();
     this.directoryWatcher = null;
     this.cachedFiles = new Set();
+    this.lastAccessTime = new Map();
+    this.cleanupTimer = null;
+    
+    // 定期クリーンアップタイマーの開始
+    this.startCleanupTimer();
+  }
+
+  /**
+   * セッションのアクセス時刻を更新
+   */
+  private updateAccessTime(sessionId: string): void {
+    this.lastAccessTime.set(sessionId, Date.now());
+  }
+
+  /**
+   * 定期クリーンアップタイマーを開始
+   */
+  private startCleanupTimer(): void {
+    if (this.cleanupTimer) {
+      return; // 既にタイマーが動作中
+    }
+    
+    this.cleanupTimer = setInterval(async () => {
+      try {
+        await this.cleanupOldSessions();
+      } catch (error) {
+        if (process.env.DEBUG || process.env.SESSION_WATCHER_DEBUG) {
+          console.error(`[SessionWatcher] Cleanup error: ${(error as Error).message}`);
+        }
+      }
+    }, SessionWatcher.CLEANUP_INTERVAL_MS);
+  }
+
+  /**
+   * 定期クリーンアップタイマーを停止
+   */
+  private stopCleanupTimer(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+  }
+
+  /**
+   * 古いセッションをクリーンアップ（LRUとTTLベース）
+   */
+  private async cleanupOldSessions(): Promise<void> {
+    const now = Date.now();
+    const sessionsToRemove: string[] = [];
+    
+    // TTLを超えたセッションを特定
+    for (const [sessionId, lastAccess] of this.lastAccessTime.entries()) {
+      if (now - lastAccess > SessionWatcher.SESSION_TTL_MS) {
+        sessionsToRemove.push(sessionId);
+      }
+    }
+    
+    // セッション数が最大値を超えている場合、最も古いものから削除
+    if (this.sessions.size > SessionWatcher.MAX_SESSIONS) {
+      // アクセス時刻でソート（古い順）
+      const sortedSessions = Array.from(this.lastAccessTime.entries())
+        .sort((a, b) => a[1] - b[1]);
+      
+      const excessCount = this.sessions.size - SessionWatcher.MAX_SESSIONS + 1; // +1 for new session
+      for (let i = 0; i < Math.min(excessCount, sortedSessions.length); i++) {
+        const session = sortedSessions[i];
+        if (session && !sessionsToRemove.includes(session[0])) {
+          sessionsToRemove.push(session[0]);
+        }
+      }
+    }
+    
+    // セッションを削除
+    for (const sessionId of sessionsToRemove) {
+      this.stopWatching(sessionId);
+      
+      // デバッグログ
+      if (process.env.DEBUG || process.env.SESSION_WATCHER_DEBUG) {
+        console.error(`[SessionWatcher] Cleaned up session ${sessionId} (TTL or LRU)`);
+      }
+    }
   }
 
   /**
@@ -221,8 +311,23 @@ export class SessionWatcher extends EventEmitter {
 
   async watchSession(sessionId: string, filePath: string): Promise<void> {
     if (this.watchers.has(sessionId)) {
+      this.updateAccessTime(sessionId);
       return;
     }
+
+    // 最大セッション数のチェック
+    if (this.sessions.size >= SessionWatcher.MAX_SESSIONS) {
+      // 古いセッションをクリーンアップ
+      await this.cleanupOldSessions();
+      
+      // それでもまだ最大数を超えている場合はエラー
+      if (this.sessions.size >= SessionWatcher.MAX_SESSIONS) {
+        throw new Error(`Maximum number of sessions (${SessionWatcher.MAX_SESSIONS}) reached`);
+      }
+    }
+
+    // アクセス時刻を記録
+    this.updateAccessTime(sessionId);
 
     // ファイルの現在位置を記録
     const stats = await fs.promises.stat(filePath);
@@ -301,6 +406,9 @@ export class SessionWatcher extends EventEmitter {
   }
 
   async handleFileChange(sessionId: string, filePath: string): Promise<void> {
+    // アクセス時刻を更新
+    this.updateAccessTime(sessionId);
+    
     try {
       const stats = await fs.promises.stat(filePath);
       const lastPosition = Math.max(0, this.filePositions.get(sessionId) || 0);
@@ -433,19 +541,86 @@ export class SessionWatcher extends EventEmitter {
   stopWatching(sessionId: string): void {
     const watcher = this.watchers.get(sessionId);
     if (watcher) {
-      watcher.close();
+      // FSWatcherをクローズ
+      try {
+        watcher.close();
+      } catch (error) {
+        if (process.env.DEBUG || process.env.SESSION_WATCHER_DEBUG) {
+          console.error(`[SessionWatcher] Error closing watcher for ${sessionId}: ${(error as Error).message}`);
+        }
+      }
+      
+      // すべてのMapからエントリを削除
       this.watchers.delete(sessionId);
       this.filePositions.delete(sessionId);
       this.sessions.delete(sessionId);
+      this.lastAccessTime.delete(sessionId);
+      
+      // ファイル更新時刻も削除
+      if (this.fileMtimes) {
+        this.fileMtimes.delete(sessionId);
+      }
+      
+      // イベントリスナーをクリーンアップ（必要に応じて）
+      this.removeAllListeners(`session-${sessionId}`);
+      
       this.emit('session-stopped', { sessionId });
+      
+      // デバッグログ
+      if (process.env.DEBUG || process.env.SESSION_WATCHER_DEBUG) {
+        console.error(`[SessionWatcher] Completely stopped watching session ${sessionId}`);
+      }
     }
   }
 
   getSessionData(sessionId: string): SessionData | null {
+    if (this.sessions.has(sessionId)) {
+      this.updateAccessTime(sessionId);
+    }
     return this.sessions.get(sessionId) || null;
   }
 
+  /**
+   * メモリ使用状況の統計を取得
+   */
+  getMemoryStats(): {
+    activeSessions: number;
+    maxSessions: number;
+    watchedFiles: number;
+    cachedFiles: number;
+    oldestSessionAge: number | null;
+    estimatedMemoryMB: number;
+  } {
+    const now = Date.now();
+    let oldestAge: number | null = null;
+    
+    // 最も古いセッションの経過時間を計算
+    if (this.lastAccessTime.size > 0) {
+      const oldestTime = Math.min(...Array.from(this.lastAccessTime.values()));
+      oldestAge = now - oldestTime;
+    }
+    
+    // 推定メモリ使用量の計算（概算）
+    // 各セッションデータは平均10KB、各ウォッチャーは1KBと仮定
+    const sessionMemory = this.sessions.size * 10; // KB
+    const watcherMemory = this.watchers.size * 1; // KB
+    const cacheMemory = this.cachedFiles.size * 0.1; // KB (ファイルパスのみ)
+    const estimatedMemoryKB = sessionMemory + watcherMemory + cacheMemory;
+    
+    return {
+      activeSessions: this.sessions.size,
+      maxSessions: SessionWatcher.MAX_SESSIONS,
+      watchedFiles: this.watchers.size,
+      cachedFiles: this.cachedFiles.size,
+      oldestSessionAge: oldestAge,
+      estimatedMemoryMB: estimatedMemoryKB / 1024
+    };
+  }
+
   stopAll(): void {
+    // 定期クリーンアップタイマーを停止
+    this.stopCleanupTimer();
+    
     for (const sessionId of this.watchers.keys()) {
       this.stopWatching(sessionId);
     }
