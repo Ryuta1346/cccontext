@@ -4,7 +4,7 @@ import os from 'os';
 import { EventEmitter } from 'events';
 import chokidar from 'chokidar';
 import type { FSWatcher } from 'chokidar';
-import type { SessionData, MessageData } from '../types/index.js';
+import type { SessionData, MessageData, MessageContent } from '../types/index.js';
 
 
 interface ActiveSession {
@@ -526,7 +526,7 @@ export class SessionWatcher extends EventEmitter {
     // Store latest user prompt
     if (data.message?.role === 'user' && data.message?.content) {
       const content = Array.isArray(data.message.content) 
-        ? data.message.content.find((c: any) => c.type === 'text')?.text || ''
+        ? data.message.content.find((c: MessageContent) => c.type === 'text')?.text || ''
         : data.message.content;
       
       if (content) {

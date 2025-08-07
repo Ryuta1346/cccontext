@@ -1,6 +1,21 @@
 import { PRICING, getModelName as getModelNameFromConfig, getModelPricing } from './model-config.js';
 import type { Message } from '../types/index.js';
 
+// Type for handling nested message structures from tests
+interface NestedMessage {
+  message: Message;
+}
+
+// Union type for flexible message handling
+type FlexibleMessage = Message | NestedMessage;
+
+// Type guard for nested message
+function isNestedMessage(msg: FlexibleMessage): msg is NestedMessage {
+  return msg != null && typeof msg === 'object' && 'message' in msg && 
+         (msg as NestedMessage).message != null && 
+         typeof (msg as NestedMessage).message === 'object';
+}
+
 // Re-export PRICING for backward compatibility
 export { PRICING };
 
@@ -115,8 +130,8 @@ export class UsageCalculator {
     // Normalize messages structure to handle different test formats
     const normalizedMessages = messages.map(msg => {
       // Handle nested message structure from tests
-      if ((msg as any)?.message) {
-        const nestedMsg = (msg as any).message;
+      if (isNestedMessage(msg)) {
+        const nestedMsg = msg.message;
         return {
           role: nestedMsg.role,
           content: nestedMsg.content,

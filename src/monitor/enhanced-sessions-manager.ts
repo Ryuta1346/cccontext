@@ -251,7 +251,7 @@ export class EnhancedSessionsManager extends EventEmitter {
   /**
    * アクティブなセッションを取得
    */
-  async getActiveSession(): Promise<any> {
+  async getActiveSession(): Promise<{ sessionId: string; filePath: string } | null> {
     return this.watcher.findActiveSession();
   }
 
