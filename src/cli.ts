@@ -1,18 +1,79 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
-import { SessionWatcher } from './monitor/session-watcher.mjs';
-import { ContextTracker } from './monitor/context-tracker.mjs';
-import { LiveView } from './display/live-view.mjs';
-import { SessionsLiveView } from './display/sessions-live-view.mjs';
-import { UsageCalculator } from './monitor/usage-calculator.mjs';
-import { EnhancedSessionsManager } from './monitor/enhanced-sessions-manager.mjs';
+import { SessionWatcher } from './monitor/session-watcher.js';
+import { ContextTracker } from './monitor/context-tracker.js';
+import { LiveView } from './display/live-view.js';
+import { SessionsLiveView } from './display/sessions-live-view.js';
+import { UsageCalculator } from './monitor/usage-calculator.js';
+import { EnhancedSessionsManager } from './monitor/enhanced-sessions-manager.js';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import fs from 'fs';
 import path from 'path';
 
+interface CLIOptions {
+  live?: boolean;
+  session?: string;
+  limit?: string | number;
+  debug?: boolean;
+  clearCache?: boolean;
+  list?: boolean;
+  listLimit?: number;
+}
+
+interface SessionForList {
+  sessionId: string;
+  file: string;
+  lastModified: Date;
+  model: string;
+  turns: number;
+  totalTokens: number;
+  latestPrompt?: string;
+}
+
+interface SessionWithContext {
+  sessionId: string;
+  file: string;
+  lastModified: Date;
+  size: number;
+  model: string;
+  modelName: string;
+  turns: number;
+  totalTokens: number;
+  totalCost: number;
+  usagePercentage: number;
+  latestPrompt?: string;
+  autoCompact: {
+    willTrigger: boolean;
+    threshold: number;
+    remainingPercentage: number;
+  };
+}
+
+interface ActiveSession {
+  sessionId: string;
+  filePath: string;
+}
+
+interface SessionData {
+  sessionId: string;
+  model: string;
+  turns: number;
+  totalTokens: number;
+  latestPrompt?: string;
+  messages: any[];
+}
+
 class CCContextCLI {
+  private watcher: SessionWatcher;
+  private tracker: ContextTracker;
+  private sessionsManager: EnhancedSessionsManager;
+  private view: LiveView | null;
+  private sessionsView: SessionsLiveView | null;
+  private calculator: UsageCalculator;
+  private watchedSessions: Map<string, SessionWatcher>;
+
   constructor() {
     this.watcher = new SessionWatcher();
     this.tracker = new ContextTracker();
@@ -23,7 +84,7 @@ class CCContextCLI {
     this.watchedSessions = new Map();
   }
 
-  async monitorLive(options) {
+  async monitorLive(options: CLIOptions): Promise<void> {
     console.log(chalk.cyan('🔍 Starting Claude Code Context Monitor...'));
     
     // ライブビューの初期化
@@ -31,7 +92,7 @@ class CCContextCLI {
     this.view.init();
 
     try {
-      let sessionToMonitor;
+      let sessionToMonitor: ActiveSession | null;
       
       // セッションの選択処理
       if (options.session) {
@@ -67,18 +128,24 @@ class CCContextCLI {
       this.view.showMessage(`Monitoring session: ${sessionToMonitor.sessionId.substring(0, 8)}...`);
 
       // イベントハンドラーの設定
-      this.watcher.on('session-data', (sessionData) => {
+      this.watcher.on('session-data', (sessionData: SessionData) => {
         const contextInfo = this.tracker.updateSession(sessionData);
-        this.view.updateContextInfo(contextInfo);
+        if (this.view) {
+          this.view.updateContextInfo(contextInfo);
+        }
       });
 
-      this.watcher.on('message', ({ sessionData }) => {
+      this.watcher.on('message', ({ sessionData }: { sessionData: SessionData }) => {
         const contextInfo = this.tracker.updateSession(sessionData);
-        this.view.updateContextInfo(contextInfo);
+        if (this.view) {
+          this.view.updateContextInfo(contextInfo);
+        }
       });
 
-      this.watcher.on('error', ({ sessionId, error }) => {
-        this.view.showError(`Error in session ${sessionId}: ${error.message}`);
+      this.watcher.on('error', ({ sessionId, error }: { sessionId: string; error: Error }) => {
+        if (this.view) {
+          this.view.showError(`Error in session ${sessionId}: ${error.message}`);
+        }
       });
 
       // セッション監視開始
@@ -89,13 +156,13 @@ class CCContextCLI {
       process.on('SIGTERM', () => this.cleanup());
 
     } catch (error) {
-      console.error(chalk.red(`Error: ${error.message}`));
+      console.error(chalk.red(`Error: ${(error as Error).message}`));
       this.cleanup();
       process.exit(1);
     }
   }
 
-  async showSessions(options) {
+  async showSessions(options: CLIOptions): Promise<void> {
     console.log(chalk.cyan('🔍 Loading Claude Code Sessions...'));
     
     // ライブビューの初期化
@@ -104,7 +171,7 @@ class CCContextCLI {
 
     try {
       const files = await this.watcher.getAllJsonlFiles();
-      const sessions = [];
+      const sessions: SessionWithContext[] = [];
 
       // 各セッションファイルの情報を収集
       for (const file of files) {
@@ -114,8 +181,8 @@ class CCContextCLI {
         // monitor --liveと同じ方法でセッションデータを読み込む
         const tempWatcher = new SessionWatcher();
         
-        let sessionData = null;
-        tempWatcher.once('session-data', (data) => {
+        let sessionData: SessionData | null = null;
+        tempWatcher.once('session-data', (data: SessionData) => {
           sessionData = data;
         });
         
@@ -123,29 +190,30 @@ class CCContextCLI {
         
         if (sessionData) {
           const contextInfo = this.tracker.updateSession(sessionData);
+          const safeSessionData = sessionData as any;
           
           sessions.push({
             sessionId,
             file,
             lastModified: stats.mtime,
             size: stats.size,
-            model: sessionData.model,
+            model: safeSessionData.model || 'unknown',
             modelName: contextInfo.modelName,
-            turns: sessionData.turns,
-            totalTokens: sessionData.totalTokens,
+            turns: safeSessionData.turns || 0,
+            totalTokens: safeSessionData.totalTokens || 0,
             totalCost: contextInfo.totalCost,
             usagePercentage: contextInfo.usagePercentage,
-            latestPrompt: sessionData.latestPrompt,
+            latestPrompt: safeSessionData.latestPrompt,
             autoCompact: contextInfo.autoCompact
           });
         }
       }
 
       // 最終更新時刻でソート
-      sessions.sort((a, b) => b.lastModified - a.lastModified);
+      sessions.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
 
       // 表示数を制限
-      const limit = options.limit || 10;
+      const limit = parseInt(String(options.limit || 10));
       const displaySessions = sessions.slice(0, limit);
 
       // SessionsLiveViewで表示
@@ -153,21 +221,25 @@ class CCContextCLI {
       
       // プロセス終了時のクリーンアップ
       process.on('SIGINT', () => {
-        this.sessionsView.destroy();
+        if (this.sessionsView) {
+          this.sessionsView.destroy();
+        }
         process.exit(0);
       });
       process.on('SIGTERM', () => {
-        this.sessionsView.destroy();
+        if (this.sessionsView) {
+          this.sessionsView.destroy();
+        }
         process.exit(0);
       });
 
       // キーイベントの待機
-      await new Promise(() => {
+      await new Promise<void>(() => {
         // プロミスは解決されない（ユーザーがqまたはCtrl+Cで終了するまで待機）
       });
 
     } catch (error) {
-      console.error(chalk.red(`Error: ${error.message}`));
+      console.error(chalk.red(`Error: ${(error as Error).message}`));
       if (this.sessionsView) {
         this.sessionsView.destroy();
       }
@@ -175,17 +247,17 @@ class CCContextCLI {
     }
   }
 
-  createMiniProgressBar(percentage) {
+  private createMiniProgressBar(percentage: number): string {
     const width = 10;
     const safePercentage = Math.max(0, Math.min(100, percentage || 0));
     const filled = Math.max(0, Math.min(width, Math.round((safePercentage / 100) * width)));
     const empty = Math.max(0, width - filled);
     
-    const color = safePercentage >= 80 ? 'red' : safePercentage >= 60 ? 'yellow' : 'green';
+    const color: 'red' | 'yellow' | 'green' = safePercentage >= 80 ? 'red' : safePercentage >= 60 ? 'yellow' : 'green';
     return chalk[color]('█'.repeat(filled)) + chalk.gray('░'.repeat(empty));
   }
 
-  formatAge(date) {
+  private formatAge(date: Date): string {
     const now = Date.now();
     const age = now - date.getTime();
     const minutes = Math.floor(age / 60000);
@@ -197,7 +269,7 @@ class CCContextCLI {
     return `${minutes}m ago`;
   }
 
-  formatPromptForList(prompt) {
+  private formatPromptForList(prompt?: string): string {
     if (!prompt) return '';
     
     const maxLength = 60;
@@ -225,48 +297,48 @@ class CCContextCLI {
     return result;
   }
 
-  formatUsage(percentage) {
-    // percentageがundefinedまたはnullの場合のデフォルト値
-    const safePercentage = Math.max(0, Math.min(100, percentage ?? 0));
-    
-    const bar = this.createMiniProgressBar(safePercentage);
-    const percentStr = safePercentage.toFixed(1) + '%';
-    return `[${bar}] ${chalk.cyan(percentStr.padStart(5))}`;
-  }
+  // private formatUsage(percentage: number): string {
+  //   // percentageがundefinedまたはnullの場合のデフォルト値
+  //   const safePercentage = Math.max(0, Math.min(100, percentage ?? 0));
+  //   
+  //   const bar = this.createMiniProgressBar(safePercentage);
+  //   const percentStr = safePercentage.toFixed(1) + '%';
+  //   return `[${bar}] ${chalk.cyan(percentStr.padStart(5))}`;
+  // }
 
-  formatAutoCompact(autoCompact) {
-    if (!autoCompact?.enabled) {
-      return chalk.gray('N/A');
-    }
+  // private formatAutoCompact(autoCompact?: { enabled?: boolean; remainingPercentage: number; thresholdPercentage?: number; warningLevel?: string }): string {
+  //   if (!autoCompact?.enabled) {
+  //     return chalk.gray('N/A');
+  //   }
+  // 
+  //   const { remainingPercentage, thresholdPercentage, warningLevel } = autoCompact;
+  //   
+  //   if (remainingPercentage <= 0) {
+  //     return chalk.red('ACTIVE!');
+  //   }
+  //   
+  //   // 残り容量を % で表示
+  //   const percentStr = remainingPercentage.toFixed(1) + '%';
+  //   
+  //   // 警告レベルに応じた表示
+  //   switch (warningLevel) {
+  //     case 'critical':
+  //       return chalk.red(`!${percentStr}`);
+  //     case 'warning':
+  //       return chalk.yellow(`⚠ ${percentStr}`);
+  //     case 'notice':
+  //       return chalk.cyan(percentStr);
+  //     default:
+  //       return chalk.gray(percentStr);
+  //   }
+  // }
 
-    const { remainingPercentage, thresholdPercentage, warningLevel } = autoCompact;
-    
-    if (remainingPercentage <= 0) {
-      return chalk.red('ACTIVE!');
-    }
-    
-    // 残り容量を % で表示
-    const percentStr = remainingPercentage.toFixed(1) + '%';
-    
-    // 警告レベルに応じた表示
-    switch (warningLevel) {
-      case 'critical':
-        return chalk.red(`!${percentStr}`);
-      case 'warning':
-        return chalk.yellow(`⚠ ${percentStr}`);
-      case 'notice':
-        return chalk.cyan(percentStr);
-      default:
-        return chalk.gray(percentStr);
-    }
-  }
+  // private formatCost(cost: number): string {
+  //   const safeCost = cost ?? 0;
+  //   return `$${safeCost.toFixed(2)}`;
+  // }
 
-  formatCost(cost) {
-    const safeCost = cost ?? 0;
-    return `$${safeCost.toFixed(2)}`;
-  }
-
-  async resolveSessionIdentifier(identifier) {
+  async resolveSessionIdentifier(identifier: string): Promise<string> {
     // 数値のみ受け付ける
     if (!/^\d+$/.test(identifier)) {
       throw new Error(`Invalid session number: ${identifier}. Please specify a number from the list.`);
@@ -280,17 +352,17 @@ class CCContextCLI {
     
     if (position > 0 && position <= sortedFiles.length) {
       const selectedFile = sortedFiles[position - 1];
-      return path.basename(selectedFile, '.jsonl');
+      return path.basename(selectedFile!, '.jsonl');
     } else {
       throw new Error(`Invalid session number: ${position}. Valid range is 1-${sortedFiles.length}`);
     }
   }
 
-  async listSessionsForSelection(options = {}) {
+  async listSessionsForSelection(options: { limit?: number } = {}): Promise<void> {
     try {
       const files = await this.watcher.getAllJsonlFiles();
-      const sessions = [];
-      const limit = parseInt(options.limit || 20);
+      const sessions: SessionForList[] = [];
+      const limit = parseInt(String(options.limit || 20));
 
       // 各セッションファイルの情報を収集
       for (const file of files) {
@@ -300,28 +372,29 @@ class CCContextCLI {
         // セッションデータを読み込む
         const tempWatcher = new SessionWatcher();
         
-        let sessionData = null;
-        tempWatcher.once('session-data', (data) => {
+        let sessionData: SessionData | null = null;
+        tempWatcher.once('session-data', (data: SessionData) => {
           sessionData = data;
         });
         
         await tempWatcher.readExistingData(sessionId, file, false);
         
         if (sessionData) {
+          const safeSessionData = sessionData as any;
           sessions.push({
             sessionId,
             file,
             lastModified: stats.mtime,
-            model: sessionData.model,
-            turns: sessionData.turns,
-            totalTokens: sessionData.totalTokens,
-            latestPrompt: sessionData.latestPrompt
+            model: safeSessionData.model || 'unknown',
+            turns: safeSessionData.turns || 0,
+            totalTokens: safeSessionData.totalTokens || 0,
+            latestPrompt: safeSessionData.latestPrompt
           });
         }
       }
 
       // 最終更新時刻でソート（降順）
-      sessions.sort((a, b) => b.lastModified - a.lastModified);
+      sessions.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
 
       if (sessions.length === 0) {
         console.log(chalk.yellow('No sessions found.'));
@@ -387,21 +460,21 @@ class CCContextCLI {
       console.log(chalk.gray('\nUsage: cccontext -s <number>'))
 
     } catch (error) {
-      console.error(chalk.red(`Error: ${error.message}`));
+      console.error(chalk.red(`Error: ${(error as Error).message}`));
       process.exit(1);
     }
   }
 
-  async clearCache() {
+  async clearCache(): Promise<void> {
     try {
       console.log(chalk.yellow('🗑️  Clearing session cache...'));
       
       // SessionsManagerからSessionCacheインスタンスを取得
-      const { SessionsManager } = await import('./monitor/sessions-manager.mjs');
+      const { SessionsManager } = await import('./monitor/sessions-manager.js');
       const manager = new SessionsManager();
       
-      if (manager.cache) {
-        manager.cache.clearAll();
+      if ((manager as any).cache) {
+        (manager as any).cache.clearAll();
         console.log(chalk.green('✅ Session cache cleared successfully'));
       } else {
         console.log(chalk.yellow('⚠️  No session cache found'));
@@ -409,12 +482,12 @@ class CCContextCLI {
       
       process.exit(0);
     } catch (error) {
-      console.error(chalk.red(`Error clearing cache: ${error.message}`));
+      console.error(chalk.red(`Error clearing cache: ${(error as Error).message}`));
       process.exit(1);
     }
   }
 
-  async showSessionsLive(options) {
+  async showSessionsLive(options: CLIOptions): Promise<void> {
     console.log(chalk.cyan('🔍 Starting Claude Code Sessions Monitor...'));
     
     // ライブビューの初期化
@@ -424,14 +497,14 @@ class CCContextCLI {
     try {
       // 全セッションファイルを取得
       const files = await this.watcher.getAllJsonlFiles();
-      const limit = parseInt(options.limit);
+      const limit = parseInt(String(options.limit));
       
       // 最新のファイルから順に処理
       const sortedFiles = await this.getSortedFilesByMtime(files);
       const filesToWatch = sortedFiles.slice(0, limit);
       
       // 初期セッションリスト
-      const sessions = [];
+      const sessions: any[] = [];
       
       // 各セッションに対してwatchSessionを開始
       for (const file of filesToWatch) {
@@ -442,17 +515,17 @@ class CCContextCLI {
         const sessionWatcher = new SessionWatcher();
         
         // イベントハンドラー設定
-        sessionWatcher.on('session-data', (sessionData) => {
+        sessionWatcher.on('session-data', (sessionData: SessionData) => {
           const contextInfo = this.tracker.updateSession(sessionData);
           this.updateSessionInView(sessionId, sessionData, contextInfo, stats.mtime);
         });
         
-        sessionWatcher.on('message', ({ sessionData }) => {
+        sessionWatcher.on('message', ({ sessionData }: { sessionData: SessionData }) => {
           const contextInfo = this.tracker.updateSession(sessionData);
           this.updateSessionInView(sessionId, sessionData, contextInfo, new Date());
         });
         
-        sessionWatcher.on('error', ({ error }) => {
+        sessionWatcher.on('error', ({ error }: { error: Error }) => {
           if (options.debug) {
             console.error(`[DEBUG] Error in session ${sessionId}: ${error.message}`);
           }
@@ -463,7 +536,7 @@ class CCContextCLI {
         this.watchedSessions.set(sessionId, sessionWatcher);
         
         // 初期データを取得してセッションリストに追加
-        const sessionData = sessionWatcher.sessions.get(sessionId);
+        const sessionData = (sessionWatcher as any).sessions.get(sessionId);
         if (sessionData) {
           const contextInfo = this.tracker.updateSession(sessionData);
           sessions.push({
@@ -482,16 +555,18 @@ class CCContextCLI {
       }
       
       // 初期表示
-      this.sessionsView.updateSessions(sessions);
+      if (this.sessionsView) {
+        this.sessionsView.updateSessions(sessions);
+      }
       
       // ディレクトリ監視（新規セッション追加/削除用）
       await this.watcher.startDirectoryWatch();
       
-      this.watcher.on('session-added', async ({ sessionId, filePath }) => {
+      this.watcher.on('session-added', async ({ sessionId, filePath }: { sessionId: string; filePath: string }) => {
         await this.addSessionWatch(sessionId, filePath, options);
       });
       
-      this.watcher.on('session-removed', ({ sessionId }) => {
+      this.watcher.on('session-removed', ({ sessionId }: { sessionId: string }) => {
         this.removeSessionWatch(sessionId);
       });
       
@@ -500,18 +575,18 @@ class CCContextCLI {
       process.on('SIGTERM', () => this.cleanup());
 
     } catch (error) {
-      console.error(chalk.red(`Error: ${error.message}`));
+      console.error(chalk.red(`Error: ${(error as Error).message}`));
       this.cleanup();
       process.exit(1);
     }
   }
 
-  async showSessionsLiveEnhanced(options) {
+  async showSessionsLiveEnhanced(options: CLIOptions): Promise<void> {
     console.log(chalk.cyan('🔍 Starting Enhanced Claude Code Sessions Monitor...'));
     
     // デバッグモードの設定
     const debugMode = process.env.DEBUG === '1' || options.debug;
-    this.sessionsManager.setDebugMode(debugMode);
+    this.sessionsManager.setDebugMode(debugMode || false);
     
     if (debugMode) {
       console.log(chalk.yellow('🐛 Debug mode enabled'));
@@ -524,12 +599,12 @@ class CCContextCLI {
     try {
       // イベントリスナーを先に設定
       // セッション読み込み完了イベント
-      this.sessionsManager.on('sessions-loaded', (sessions) => {
+      this.sessionsManager.on('sessions-loaded', (sessions: any[]) => {
         if (debugMode) {
           console.error(`[CLI] Sessions loaded event received: ${sessions.length} sessions`);
         }
         
-        const limit = parseInt(options.limit || 20);
+        const limit = parseInt(String(options.limit || 20));
         const displaySessions = sessions.slice(0, limit);
         
         if (debugMode) {
@@ -539,15 +614,19 @@ class CCContextCLI {
           }
         }
         
-        this.sessionsView.updateSessions(displaySessions);
-        this.sessionsView.render();
+        if (this.sessionsView) {
+          this.sessionsView.updateSessions(displaySessions);
+          this.sessionsView.render();
+        }
       });
       
       // セッション更新イベント（リアルタイム）
-      this.sessionsManager.on('sessions-updated', (sessions) => {
-        const limit = parseInt(options.limit || 20);
+      this.sessionsManager.on('sessions-updated', (sessions: any[]) => {
+        const limit = parseInt(String(options.limit || 20));
         const displaySessions = sessions.slice(0, limit);
-        this.sessionsView.updateSessions(displaySessions);
+        if (this.sessionsView) {
+          this.sessionsView.updateSessions(displaySessions);
+        }
         
         if (debugMode) {
           const stats = this.sessionsManager.getCacheStats();
@@ -571,21 +650,21 @@ class CCContextCLI {
       this.updateStatusBarForEventDriven();
       
     } catch (error) {
-      console.error(chalk.red(`Error: ${error.message}`));
+      console.error(chalk.red(`Error: ${(error as Error).message}`));
       this.cleanup();
       process.exit(1);
     }
   }
 
-  updateStatusBarForEventDriven() {
-    if (this.sessionsView && this.sessionsView.boxes && this.sessionsView.boxes.statusBar) {
-      this.sessionsView.boxes.statusBar.setContent(
+  private updateStatusBarForEventDriven(): void {
+    if (this.sessionsView && (this.sessionsView as any).boxes && (this.sessionsView as any).boxes.statusBar) {
+      (this.sessionsView as any).boxes.statusBar.setContent(
         '[Live] Event-driven updates (↑↓: navigate, q: exit, r: refresh)'
       );
     }
   }
 
-  async getSortedFilesByMtime(files) {
+  async getSortedFilesByMtime(files: string[]): Promise<string[]> {
     const filesWithStats = await Promise.all(
       files.map(async (file) => {
         const stats = await fs.promises.stat(file);
@@ -593,16 +672,16 @@ class CCContextCLI {
       })
     );
     
-    filesWithStats.sort((a, b) => b.mtime - a.mtime);
+    filesWithStats.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
     return filesWithStats.map(f => f.file);
   }
 
-  updateSessionInView(sessionId, sessionData, contextInfo, lastModified) {
+  private updateSessionInView(sessionId: string, sessionData: SessionData, contextInfo: any, lastModified: Date | number): void {
     // 現在の表示セッションリストを取得
-    const currentSessions = this.sessionsView.sessions || [];
+    const currentSessions = (this.sessionsView as any)?.sessions || [];
     
     // 該当セッションを更新
-    const updatedSessions = currentSessions.map(session => {
+    const updatedSessions = currentSessions.map((session: any) => {
       if (session.sessionId === sessionId) {
         return {
           ...session,
@@ -621,7 +700,7 @@ class CCContextCLI {
     });
     
     // セッションが存在しない場合は追加
-    if (!updatedSessions.find(s => s.sessionId === sessionId)) {
+    if (!updatedSessions.find((s: any) => s.sessionId === sessionId)) {
       updatedSessions.push({
         sessionId,
         model: sessionData.model,
@@ -637,26 +716,32 @@ class CCContextCLI {
     }
     
     // ソートして表示更新
-    updatedSessions.sort((a, b) => b.lastModified - a.lastModified);
-    this.sessionsView.updateSessions(updatedSessions);
+    updatedSessions.sort((a: any, b: any) => {
+      const aTime = a.lastModified instanceof Date ? a.lastModified.getTime() : a.lastModified;
+      const bTime = b.lastModified instanceof Date ? b.lastModified.getTime() : b.lastModified;
+      return bTime - aTime;
+    });
+    if (this.sessionsView) {
+      this.sessionsView.updateSessions(updatedSessions);
+    }
   }
 
-  async addSessionWatch(sessionId, filePath, options) {
+  async addSessionWatch(sessionId: string, filePath: string, options: CLIOptions): Promise<void> {
     if (this.watchedSessions.has(sessionId)) return;
     
     const sessionWatcher = new SessionWatcher();
     
-    sessionWatcher.on('session-data', (sessionData) => {
+    sessionWatcher.on('session-data', (sessionData: SessionData) => {
       const contextInfo = this.tracker.updateSession(sessionData);
       this.updateSessionInView(sessionId, sessionData, contextInfo, new Date());
     });
     
-    sessionWatcher.on('message', ({ sessionData }) => {
+    sessionWatcher.on('message', ({ sessionData }: { sessionData: SessionData }) => {
       const contextInfo = this.tracker.updateSession(sessionData);
       this.updateSessionInView(sessionId, sessionData, contextInfo, new Date());
     });
     
-    sessionWatcher.on('error', ({ error }) => {
+    sessionWatcher.on('error', ({ error }: { error: Error }) => {
       if (options.debug) {
         console.error(`[DEBUG] Error in session ${sessionId}: ${error.message}`);
       }
@@ -666,20 +751,22 @@ class CCContextCLI {
     this.watchedSessions.set(sessionId, sessionWatcher);
   }
 
-  removeSessionWatch(sessionId) {
+  private removeSessionWatch(sessionId: string): void {
     const watcher = this.watchedSessions.get(sessionId);
     if (watcher) {
       watcher.stopWatching(sessionId);
       this.watchedSessions.delete(sessionId);
       
       // ビューからも削除
-      const currentSessions = this.sessionsView.sessions || [];
-      const updatedSessions = currentSessions.filter(s => s.sessionId !== sessionId);
-      this.sessionsView.updateSessions(updatedSessions);
+      const currentSessions = (this.sessionsView as any)?.sessions || [];
+      const updatedSessions = currentSessions.filter((s: any) => s.sessionId !== sessionId);
+      if (this.sessionsView) {
+        this.sessionsView.updateSessions(updatedSessions);
+      }
     }
   }
 
-  cleanup() {
+  cleanup(): void {
     // 全ての個別セッション監視を停止
     for (const [sessionId, watcher] of this.watchedSessions) {
       watcher.stopWatching(sessionId);
@@ -709,8 +796,8 @@ program
   .version('1.0.0')
   .exitOverride()
   .configureOutput({
-    writeOut: (str) => { process.stdout.write(str); },
-    writeErr: (str) => { process.stderr.write(str); }
+    writeOut: (str: string) => { process.stdout.write(str); },
+    writeErr: (str: string) => { process.stderr.write(str); }
   })
   .allowUnknownOption(false);
 
@@ -719,7 +806,7 @@ program
   .description('Monitor Claude Code context usage')
   .option('-l, --live', 'Live monitoring mode (default)', true)
   .option('-s, --session <number>', 'Monitor specific session by number from list')
-  .action((options) => {
+  .action((options: CLIOptions) => {
     cli.monitorLive(options);
   });
 
@@ -730,7 +817,7 @@ program
   .option('--live', 'Live monitoring mode')
   .option('--debug', 'Enable debug mode for detailed logging')
   .option('--clear-cache', 'Clear session cache and exit')
-  .action((options) => {
+  .action((options: CLIOptions) => {
     if (options.clearCache) {
       cli.clearCache();
     } else if (options.live) {
@@ -742,7 +829,7 @@ program
   });
 
 // 未知のコマンドのハンドリング
-program.on('command:*', function (operands) {
+program.on('command:*', function (operands: string[]) {
   console.error(`error: unknown command '${operands[0]}'`);
   process.exit(1);
 });
@@ -751,13 +838,13 @@ program.on('command:*', function (operands) {
 program
   .option('--list', 'List all sessions for selection')
   .option('--session <number>', 'Monitor specific session by number from list')
-  .action((options) => {
+  .action((options: CLIOptions) => {
     // コマンドラインの引数をチェック
     const args = process.argv.slice(2);
     // 未知のコマンドが指定されている場合はエラー
-    if (args.length > 0 && !args[0].startsWith('-') && 
-        !['monitor', 'sessions'].includes(args[0])) {
-      console.error(`error: unknown command '${args[0]}'`);
+    if (args.length > 0 && !args[0]!.startsWith('-') && 
+        !['monitor', 'sessions'].includes(args[0]!)) {
+      console.error(`error: unknown command '${args[0]!}'`);
       process.exit(1);
     }
     
@@ -770,7 +857,7 @@ program
 
 try {
   program.parse(process.argv);
-} catch (err) {
+} catch (err: any) {
   // CommanderのexitOverrideでhelp/version時に例外が発生
   if (err.code === 'commander.helpDisplayed' || err.code === 'commander.version') {
     process.exit(0);

@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
+  plugins: [tsconfigPaths({ projects: ['./tsconfig.test.json'] })],
   test: {
     globals: true,
     environment: 'node',
@@ -12,6 +14,8 @@ export default defineConfig({
         'test/**',
         '**/*.test.mjs',
         '**/*.spec.mjs',
+        '**/*.test.ts',
+        '**/*.spec.ts',
         'bin/**',
         'coverage/**',
         'dist/**',
@@ -20,5 +24,15 @@ export default defineConfig({
     },
     testTimeout: 20000,
     hookTimeout: 20000
+  },
+  resolve: {
+    alias: {
+      '@': '/src'
+    },
+    extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs']
+  },
+  esbuild: {
+    target: 'es2022',
+    loader: 'ts'
   }
 });

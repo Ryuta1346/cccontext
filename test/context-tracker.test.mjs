@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ContextTracker, CONTEXT_WINDOWS } from '../src/monitor/context-tracker.mjs';
+import { ContextTracker, CONTEXT_WINDOWS } from '../src/monitor/context-tracker.ts';
 
 describe('ContextTracker', () => {
   describe('Error Cases', () => {

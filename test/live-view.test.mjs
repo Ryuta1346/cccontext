@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { LiveView } from '../src/display/live-view.mjs';
+import { LiveView } from '../src/display/live-view.ts';
 
 // Mock blessed module
 vi.mock('blessed', () => ({
@@ -462,10 +462,11 @@ describe('LiveView', () => {
       
       expect(blessed.message).toHaveBeenCalledWith(
         expect.objectContaining({
-          border: expect.objectContaining({ fg: 'red' }),
+          border: expect.objectContaining({ type: 'line' }),
           style: expect.objectContaining({
             bg: 'red',
-            fg: 'white'
+            fg: 'white',
+            border: expect.objectContaining({ fg: 'white' })
           })
         })
       );

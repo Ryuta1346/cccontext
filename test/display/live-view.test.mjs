@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect } from 'vitest';
-import { LiveView } from '../../src/display/live-view.mjs';
+import { LiveView } from '../../src/display/live-view.ts';
 
 describe('LiveView', () => {
   let liveView;

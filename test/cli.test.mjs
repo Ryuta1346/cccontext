@@ -6,7 +6,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const cliPath = path.join(__dirname, '..', 'src', 'cli.mjs');
+const cliPath = path.join(__dirname, '..', 'dist', 'cli.js');
 
 describe('CLI', () => {
   let tempDir;

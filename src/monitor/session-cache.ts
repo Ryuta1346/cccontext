@@ -1,23 +1,65 @@
 import fs from 'fs';
 import path from 'path';
-import { getModelName, calculateMessageCost, getContextWindow, calculateUsagePercentage } from './model-config.mjs';
+import { getModelName, calculateMessageCost, calculateUsagePercentage } from './model-config.js';
+
+interface FileStats {
+  mtimeMs: number;
+  size: number;
+}
+
+interface SessionData {
+  sessionId: string;
+  model: string;
+  modelName: string;
+  turns: number;
+  totalTokens: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheTokens: number;
+  totalCost: number;
+  latestPrompt: string;
+  lastModified: Date;
+  firstTimestamp: string | null;
+  lastTimestamp: string | null;
+  filePath: string;
+  usagePercentage: number;
+}
+
+interface MessageData {
+  message?: {
+    model?: string;
+    role?: 'user' | 'assistant' | 'system';
+    content?: string | Array<{ type: string; text?: string }>;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      cache_read_input_tokens?: number;
+      cache_creation_input_tokens?: number;
+    };
+  };
+  timestamp?: string;
+}
 
 /**
  * セッションファイルのスマートキャッシュシステム
  * ファイルのmtimeとsizeを使って変更検出し、必要な場合のみ再解析
  */
 export class SessionCache {
+  private cache: Map<string, SessionData>; // sessionId -> sessionData
+  private fileStats: Map<string, FileStats>; // filePath -> { mtimeMs, size }
+  private debugMode: boolean;
+
   constructor() {
-    this.cache = new Map(); // sessionId -> sessionData
-    this.fileStats = new Map(); // filePath -> { mtimeMs, size }
+    this.cache = new Map();
+    this.fileStats = new Map();
     this.debugMode = false;
   }
 
-  setDebugMode(enabled) {
+  setDebugMode(enabled: boolean): void {
     this.debugMode = enabled;
   }
 
-  log(message) {
+  private log(message: string): void {
     if (this.debugMode) {
       console.error(`[SessionCache] ${new Date().toISOString()}: ${message}`);
     }
@@ -26,7 +68,7 @@ export class SessionCache {
   /**
    * ファイルが変更されているかチェック
    */
-  async hasFileChanged(filePath) {
+  async hasFileChanged(filePath: string): Promise<boolean> {
     try {
       const stats = await fs.promises.stat(filePath);
       const cached = this.fileStats.get(filePath);
@@ -37,7 +79,7 @@ export class SessionCache {
       
       return cached.mtimeMs !== stats.mtimeMs || cached.size !== stats.size;
     } catch (error) {
-      this.log(`Error checking file stats for ${filePath}: ${error.message}`);
+      this.log(`Error checking file stats for ${filePath}: ${(error as Error).message}`);
       return true; // エラーの場合は変更ありとして処理
     }
   }
@@ -45,7 +87,7 @@ export class SessionCache {
   /**
    * キャッシュされたセッションデータを取得（変更がない場合のみ）
    */
-  async getCachedSession(filePath) {
+  async getCachedSession(filePath: string): Promise<SessionData | null> {
     const sessionId = path.basename(filePath, '.jsonl');
     
     if (!(await this.hasFileChanged(filePath))) {
@@ -62,7 +104,7 @@ export class SessionCache {
   /**
    * セッションファイルを解析してキャッシュに保存
    */
-  async parseAndCacheSession(filePath) {
+  async parseAndCacheSession(filePath: string): Promise<SessionData | null> {
     const sessionId = path.basename(filePath, '.jsonl');
     
     // Try to get from cache
@@ -94,15 +136,17 @@ export class SessionCache {
       let totalCacheTokens = 0;
       let latestPrompt = '';
       let totalCost = 0;
-      let firstTimestamp = null;
-      let lastTimestamp = null;
+      let firstTimestamp: string | null = null;
+      let lastTimestamp: string | null = null;
 
       // Get latest model info (reverse order)
       for (let i = lines.length - 1; i >= 0 && model === 'Unknown'; i--) {
         try {
-          const data = JSON.parse(lines[i]);
+          const line = lines[i];
+          if (!line) continue;
+          const data: MessageData = JSON.parse(line);
           if (data.message?.model) {
-            model = data.message.model;
+            model = data.message.model!;
             modelName = getModelName(model);
           }
         } catch (e) {
@@ -113,7 +157,9 @@ export class SessionCache {
       // Process in reverse order for efficiency
       for (let i = lines.length - 1; i >= 0; i--) {
         try {
-          const data = JSON.parse(lines[i]);
+          const line = lines[i];
+          if (!line) continue;
+          const data: MessageData = JSON.parse(line);
           
           // Record timestamps (reverse order)
           if (data.timestamp) {
@@ -121,16 +167,13 @@ export class SessionCache {
             firstTimestamp = data.timestamp;
           }
 
-
-
-
           if (data.message?.usage) {
             const usage = data.message.usage;
             totalInputTokens += usage.input_tokens || 0;
             totalOutputTokens += usage.output_tokens || 0;
             // Cache read tokens: use latest value only
-            if (usage.cache_read_input_tokens > 0) {
-              totalCacheTokens = usage.cache_read_input_tokens;
+            if ((usage.cache_read_input_tokens || 0) > 0) {
+              totalCacheTokens = usage.cache_read_input_tokens || 0;
             }
             
             if (data.message.role === 'assistant') {
@@ -162,7 +205,7 @@ export class SessionCache {
         totalCacheTokens = 0;
       }
 
-      const sessionData = {
+      const sessionData: SessionData = {
         sessionId,
         model,
         modelName,
@@ -186,16 +229,15 @@ export class SessionCache {
       
       return sessionData;
     } catch (error) {
-      this.log(`Error parsing session ${sessionId}: ${error.message}`);
+      this.log(`Error parsing session ${sessionId}: ${(error as Error).message}`);
       return null;
     }
   }
 
-
   /**
    * セッションをキャッシュから削除
    */
-  clearSession(filePath) {
+  clearSession(filePath: string): void {
     const sessionId = path.basename(filePath, '.jsonl');
     this.cache.delete(sessionId);
     this.fileStats.delete(filePath);
@@ -205,7 +247,7 @@ export class SessionCache {
   /**
    * 全キャッシュをクリア
    */
-  clearAll() {
+  clearAll(): void {
     this.cache.clear();
     this.fileStats.clear();
     this.log('Cleared all cache');
@@ -214,7 +256,7 @@ export class SessionCache {
   /**
    * キャッシュ統計を取得
    */
-  getCacheStats() {
+  getCacheStats(): { cachedSessions: number; fileStats: number } {
     return {
       cachedSessions: this.cache.size,
       fileStats: this.fileStats.size

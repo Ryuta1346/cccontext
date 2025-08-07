@@ -2,6 +2,53 @@
  * Claude Code Auto-compact calculation module
  */
 
+interface SystemOverheadOptions {
+  messageCount?: number;
+  cacheSize?: number;
+  sessionDuration?: number;
+}
+
+interface ClaudeContextStatus {
+  currentUsage: number;
+  availableTokens: number;
+  effectiveLimit: number;
+  autoCompactEnabled: boolean;
+  systemOverhead: number;
+  percentLeft: number;
+  percentUsed: number;
+  remainingTokens: number;
+  remainingUntilAutoCompact: number | null;
+  warningThreshold: number;
+  errorThreshold: number;
+  autoCompactThreshold: number;
+  isAboveWarningThreshold: boolean;
+  isAboveErrorThreshold: boolean;
+  isAboveAutoCompactThreshold: boolean;
+  willAutoCompact: boolean;
+  displayMessage: string | null;
+}
+
+interface AutoCompactOptions {
+  messageCount?: number;
+  cacheSize?: number;
+  autoCompactEnabled?: boolean;
+}
+
+type WarningLevel = 'active' | 'critical' | 'warning' | 'notice' | 'normal';
+
+interface AutoCompactInfo {
+  enabled: boolean;
+  threshold: number;
+  thresholdPercentage: number;
+  remainingPercentage: number;
+  remainingTokens: number;
+  warningLevel: WarningLevel;
+  willCompactSoon: boolean;
+  effectiveLimit: number;
+  systemOverhead: number;
+  autoCompactThreshold: number;
+}
+
 export const CLAUDE_CONSTANTS = {
   BASE_LIMIT: 200_000,
   AUTO_COMPACT_FACTOR: 0.92,
@@ -16,11 +63,10 @@ export const CLAUDE_CONSTANTS = {
 /**
  * Calculate system overhead
  */
-export function calculateSystemOverhead(options = {}) {
+export function calculateSystemOverhead(options: SystemOverheadOptions = {}): number {
   const {
     messageCount = 0,
-    cacheSize = 0,
-    sessionDuration = 0
+    cacheSize = 0
   } = options;
   
   let overhead = CLAUDE_CONSTANTS.BASE_OVERHEAD;
@@ -40,7 +86,12 @@ export function calculateSystemOverhead(options = {}) {
 /**
  * Calculate Claude context status
  */
-export function calculateClaudeContextStatus(currentUsage, autoCompactEnabled = false, availableTokens = CLAUDE_CONSTANTS.BASE_LIMIT, overheadOptions = {}) {
+export function calculateClaudeContextStatus(
+  currentUsage: number,
+  autoCompactEnabled: boolean = false,
+  availableTokens: number = CLAUDE_CONSTANTS.BASE_LIMIT,
+  overheadOptions: SystemOverheadOptions = {}
+): ClaudeContextStatus {
   const systemOverhead = calculateSystemOverhead(overheadOptions);
   
   // Available tokens after overhead
@@ -93,7 +144,11 @@ export function calculateClaudeContextStatus(currentUsage, autoCompactEnabled = 
 /**
  * Generate display message
  */
-export function generateClaudeDisplayMessage(percentLeft, autoCompactEnabled, isAboveWarningThreshold) {
+export function generateClaudeDisplayMessage(
+  percentLeft: number,
+  autoCompactEnabled: boolean,
+  isAboveWarningThreshold: boolean
+): string | null {
   if (!isAboveWarningThreshold) {
     return null;
   }
@@ -108,7 +163,11 @@ export function generateClaudeDisplayMessage(percentLeft, autoCompactEnabled, is
 /**
  * Calculate auto-compact info
  */
-export function calculateAutoCompactInfo(currentUsage, contextWindow = CLAUDE_CONSTANTS.BASE_LIMIT, options = {}) {
+export function calculateAutoCompactInfo(
+  currentUsage: number,
+  contextWindow: number = CLAUDE_CONSTANTS.BASE_LIMIT,
+  options: AutoCompactOptions = {}
+): AutoCompactInfo {
   const {
     messageCount = 0,
     cacheSize = 0,
@@ -122,13 +181,11 @@ export function calculateAutoCompactInfo(currentUsage, contextWindow = CLAUDE_CO
     { messageCount, cacheSize }
   );
   
-  const usagePercentage = (currentUsage / status.availableTokens) * 100;
-  
   const percentageUntilCompact = autoCompactEnabled && status.remainingUntilAutoCompact !== null
     ? Math.round((status.remainingUntilAutoCompact / status.effectiveLimit) * 100)
     : 0;
   
-  let warningLevel = 'normal';
+  let warningLevel: WarningLevel = 'normal';
   if (percentageUntilCompact <= 0) {
     warningLevel = 'active';
   } else if (percentageUntilCompact < 5) {

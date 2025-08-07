@@ -1,9 +1,52 @@
 import { EventEmitter } from 'events';
-import { SessionWatcher } from './session-watcher.mjs';
-import { SessionCache } from './session-cache.mjs';
-import { ContextTracker } from './context-tracker.mjs';
+import { SessionWatcher } from './session-watcher.js';
+import { SessionCache } from './session-cache.js';
+import { ContextTracker } from './context-tracker.js';
+// import type { SessionData } from '../types/index.js';
+
+interface SessionInfo {
+  sessionId: string;
+  model: string;
+  modelName: string;
+  contextWindow: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheTokens: number;
+  usagePercentage: number;
+  remainingTokens: number;
+  remainingPercentage: number;
+  totalCost: number;
+  turns: number;
+  averageTokensPerTurn: number;
+  estimatedRemainingTurns: number;
+  warningLevel: 'normal' | 'warning' | 'severe' | 'critical';
+  startTime?: number | string | Date;
+  lastUpdate: Date;
+  latestPrompt?: string;
+  latestPromptTime?: number | string | Date;
+  autoCompact: {
+    willTrigger: boolean;
+    threshold: number;
+    remainingPercentage: number;
+  };
+  lastModified?: Date;
+}
+
+interface SessionChangeEvent {
+  sessionId: string;
+  filePath: string;
+}
 
 export class SessionsManager extends EventEmitter {
+  private watcher: SessionWatcher;
+  private cache: SessionCache;
+  private contextTracker: ContextTracker;
+  private updateBatch: Set<string>;
+  private batchTimeout: NodeJS.Timeout | null;
+  private isInitialized: boolean;
+  private debugMode: boolean;
+
   constructor() {
     super();
     this.watcher = new SessionWatcher();
@@ -15,34 +58,37 @@ export class SessionsManager extends EventEmitter {
     this.debugMode = false;
   }
 
-  setDebugMode(enabled) {
+  setDebugMode(enabled: boolean): void {
     this.debugMode = enabled;
   }
 
-  log(message) {
+  private log(message: string): void {
     if (this.debugMode) {
       console.error(`[SessionsManager] ${new Date().toISOString()}: ${message}`);
     }
   }
 
-  async initialize() {
+  async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
     this.log('Initializing sessions manager...');
 
     // Set up event handlers before starting directory watch
-    this.watcher.on('session-added', async ({ sessionId, filePath }) => {
+    this.watcher.on('session-added', async (data: SessionChangeEvent) => {
+      const { sessionId, filePath } = data;
       this.log(`Session added: ${sessionId}`);
       await this.handleSessionChange(filePath);
     });
 
-    this.watcher.on('session-removed', ({ sessionId, filePath }) => {
+    this.watcher.on('session-removed', (data: SessionChangeEvent) => {
+      const { sessionId, filePath } = data;
       this.log(`Session removed: ${sessionId}`);
       this.cache.clearSession(filePath);
       this.batchUpdate();
     });
 
-    this.watcher.on('session-updated', async ({ sessionId, filePath }) => {
+    this.watcher.on('session-updated', async (data: SessionChangeEvent) => {
+      const { sessionId, filePath } = data;
       this.log(`Session updated: ${sessionId}`);
       this.cache.clearSession(filePath); // Clear cache to force re-parse
       await this.handleSessionChange(filePath);
@@ -58,7 +104,7 @@ export class SessionsManager extends EventEmitter {
     this.log('Sessions manager initialized');
   }
 
-  async loadAllSessions() {
+  async loadAllSessions(): Promise<void> {
     this.log('Loading all sessions...');
     const files = await this.watcher.getAllJsonlFiles();
     
@@ -70,43 +116,42 @@ export class SessionsManager extends EventEmitter {
     this.emit('sessions-loaded', sessions.filter(Boolean));
   }
 
-  async loadSession(filePath) {
+  async loadSession(filePath: string): Promise<SessionInfo | null> {
     try {
       const sessionData = await this.cache.parseAndCacheSession(filePath);
+      if (!sessionData) {
+        return null;
+      }
+
       const contextInfo = this.contextTracker.updateSession({
         sessionId: sessionData.sessionId,
         model: sessionData.model,
         messages: [], // We're using parsed data, not raw messages
-        startTime: sessionData.firstTimestamp,
-        latestPrompt: sessionData.latestPrompt,
-        latestPromptTime: sessionData.lastTimestamp,
-        // Pass through pre-calculated values
         totalTokens: sessionData.totalTokens,
-        totalInputTokens: sessionData.totalInputTokens,
-        totalOutputTokens: sessionData.totalOutputTokens,
-        totalCacheTokens: sessionData.totalCacheTokens,
-        totalCost: sessionData.totalCost,
-        turns: sessionData.turns
-      });
+        totalCacheTokens: sessionData.totalCacheTokens
+      } as any);
 
-      // Return all context info including autoCompact
+      // Extend context info with session-specific data
       return {
         ...contextInfo,
-        lastModified: sessionData.lastModified
+        lastModified: sessionData.lastModified,
+        startTime: sessionData.firstTimestamp || undefined,
+        latestPrompt: sessionData.latestPrompt,
+        latestPromptTime: sessionData.lastTimestamp || undefined
       };
     } catch (error) {
-      this.log(`Error loading session ${filePath}: ${error.message}`);
+      this.log(`Error loading session ${filePath}: ${(error as Error).message}`);
       return null;
     }
   }
 
-  async handleSessionChange(filePath) {
+  async handleSessionChange(filePath: string): Promise<void> {
     // Add to batch and schedule update
     this.updateBatch.add(filePath);
     this.batchUpdate();
   }
 
-  batchUpdate() {
+  private batchUpdate(): void {
     // Clear existing timeout
     if (this.batchTimeout) {
       clearTimeout(this.batchTimeout);
@@ -118,16 +163,15 @@ export class SessionsManager extends EventEmitter {
     }, 100); // 100ms debounce
   }
 
-  async processBatch() {
+  private async processBatch(): Promise<void> {
     if (this.updateBatch.size === 0) return;
 
     this.log(`Processing batch update for ${this.updateBatch.size} sessions`);
-    const filePaths = Array.from(this.updateBatch);
+    // const filePaths = Array.from(this.updateBatch);
     this.updateBatch.clear();
 
     // Load updated sessions
-    const sessionPromises = filePaths.map(file => this.loadSession(file));
-    const updatedSessions = await Promise.all(sessionPromises);
+    // const sessionPromises = filePaths.map(file => this.loadSession(file));
     
     // Get all current sessions
     const allSessions = await this.getAllSessions();
@@ -136,13 +180,13 @@ export class SessionsManager extends EventEmitter {
     this.log(`Batch update completed - ${allSessions.length} total sessions`);
   }
 
-  async getAllSessions() {
+  async getAllSessions(): Promise<SessionInfo[]> {
     const files = await this.watcher.getAllJsonlFiles();
     const sessionPromises = files.map(file => this.loadSession(file));
     const sessions = await Promise.all(sessionPromises);
     
     return sessions
-      .filter(Boolean)
+      .filter((session): session is SessionInfo => session !== null)
       .sort((a, b) => {
         // Sort by last modified, newest first
         const aTime = a.lastModified?.getTime() || 0;
@@ -151,11 +195,11 @@ export class SessionsManager extends EventEmitter {
       });
   }
 
-  async getActiveSession() {
+  async getActiveSession(): Promise<any> {
     return this.watcher.findActiveSession();
   }
 
-  destroy() {
+  destroy(): void {
     this.log('Destroying sessions manager...');
     
     if (this.batchTimeout) {

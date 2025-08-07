@@ -3,8 +3,59 @@ import path from 'path';
 import os from 'os';
 import { EventEmitter } from 'events';
 import chokidar from 'chokidar';
+import type { FSWatcher } from 'chokidar';
+
+interface SessionData {
+  sessionId: string;
+  messages: any[];
+  totalTokens: number;
+  totalCacheTokens: number;
+  totalCost: number;
+  turns: number;
+  model: string | null;
+  startTime: Date | null;
+  isCompacted?: boolean;
+  latestUsage?: {
+    input: number;
+    output: number;
+    cache: number;
+    cacheCreation: number;
+    timestamp: string;
+  };
+  latestPrompt?: string;
+  latestPromptTime?: string;
+}
+
+interface ActiveSession {
+  sessionId: string;
+  filePath: string;
+}
+
+// interface SessionEvent {
+//   sessionId: string;
+//   filePath: string;
+// }
+
+interface MessageEvent {
+  sessionId: string;
+  data: any;
+  sessionData: SessionData;
+}
+
+interface ErrorEvent {
+  sessionId: string;
+  error: Error;
+}
 
 export class SessionWatcher extends EventEmitter {
+  private projectsDir: string;
+  private sessions: Map<string, SessionData>;
+  private watchers: Map<string, FSWatcher>;
+  private filePositions: Map<string, number>;
+  private directoryWatcher: FSWatcher | null;
+  private cachedFiles: Set<string>;
+  private fileMtimes?: Map<string, number>;
+
   constructor() {
     super();
     this.projectsDir = path.join(os.homedir(), '.claude/projects');
@@ -15,12 +66,12 @@ export class SessionWatcher extends EventEmitter {
     this.cachedFiles = new Set();
   }
 
-  async findActiveSession() {
+  async findActiveSession(): Promise<ActiveSession | null> {
     const files = await this.getAllJsonlFiles();
     if (files.length === 0) return null;
 
     // 最新の更新時刻を持つファイルを検索
-    let latestFile = null;
+    let latestFile: string | null = null;
     let latestTime = 0;
 
     for (const file of files) {
@@ -38,15 +89,15 @@ export class SessionWatcher extends EventEmitter {
     return { sessionId, filePath: latestFile };
   }
 
-  async getAllJsonlFiles() {
+  async getAllJsonlFiles(): Promise<string[]> {
     // キャッシュが存在する場合はキャッシュを返す
     if (this.cachedFiles.size > 0) {
       return Array.from(this.cachedFiles);
     }
 
-    const files = [];
+    const files: string[] = [];
     
-    async function walkDir(dir) {
+    const walkDir = async (dir: string): Promise<void> => {
       try {
         const entries = await fs.promises.readdir(dir, { withFileTypes: true });
         
@@ -62,7 +113,7 @@ export class SessionWatcher extends EventEmitter {
       } catch (error) {
         // ディレクトリアクセスエラーは無視
       }
-    }
+    };
 
     await walkDir(this.projectsDir);
     
@@ -73,11 +124,11 @@ export class SessionWatcher extends EventEmitter {
   }
 
   // キャッシュを無効化して次回フルスキャンを強制
-  invalidateCache() {
+  invalidateCache(): void {
     this.cachedFiles.clear();
   }
 
-  async startDirectoryWatch() {
+  async startDirectoryWatch(): Promise<void> {
     if (this.directoryWatcher) {
       return; // 既に監視中
     }
@@ -101,7 +152,7 @@ export class SessionWatcher extends EventEmitter {
     });
 
     // 新しい.jsonlファイルが追加された時
-    this.directoryWatcher.on('add', (filePath) => {
+    this.directoryWatcher.on('add', (filePath: string) => {
       if (path.extname(filePath) === '.jsonl') {
         this.cachedFiles.add(filePath);
         const sessionId = path.basename(filePath, '.jsonl');
@@ -110,7 +161,7 @@ export class SessionWatcher extends EventEmitter {
     });
 
     // .jsonlファイルが削除された時
-    this.directoryWatcher.on('unlink', (filePath) => {
+    this.directoryWatcher.on('unlink', (filePath: string) => {
       if (path.extname(filePath) === '.jsonl') {
         this.cachedFiles.delete(filePath);
         const sessionId = path.basename(filePath, '.jsonl');
@@ -119,7 +170,7 @@ export class SessionWatcher extends EventEmitter {
     });
     
     // .jsonlファイルが変更された時（/compactなど）
-    this.directoryWatcher.on('change', (filePath) => {
+    this.directoryWatcher.on('change', (filePath: string) => {
       if (path.extname(filePath) === '.jsonl') {
         const sessionId = path.basename(filePath, '.jsonl');
         this.emit('session-updated', { sessionId, filePath });
@@ -129,7 +180,7 @@ export class SessionWatcher extends EventEmitter {
     this.emit('directory-watch-started');
   }
 
-  async watchSession(sessionId, filePath) {
+  async watchSession(sessionId: string, filePath: string): Promise<void> {
     if (this.watchers.has(sessionId)) {
       return;
     }
@@ -161,7 +212,7 @@ export class SessionWatcher extends EventEmitter {
     this.emit('session-started', { sessionId, filePath });
   }
 
-  async readExistingData(sessionId, filePath, isCompactOperation = false) {
+  async readExistingData(sessionId: string, filePath: string, isCompactOperation = false): Promise<void> {
     try {
       const content = await fs.promises.readFile(filePath, 'utf-8');
       const lines = content.trim().split('\n').filter(line => line);
@@ -206,11 +257,11 @@ export class SessionWatcher extends EventEmitter {
       this.sessions.set(sessionId, sessionData);
       this.emit('session-data', sessionData);
     } catch (error) {
-      this.emit('error', { sessionId, error });
+      this.emit('error', { sessionId, error } as ErrorEvent);
     }
   }
 
-  async handleFileChange(sessionId, filePath) {
+  async handleFileChange(sessionId: string, filePath: string): Promise<void> {
     try {
       const stats = await fs.promises.stat(filePath);
       const lastPosition = Math.max(0, this.filePositions.get(sessionId) || 0);
@@ -246,8 +297,9 @@ export class SessionWatcher extends EventEmitter {
         });
 
         let buffer = '';
-        stream.on('data', chunk => {
-          buffer += chunk;
+        stream.on('data', (chunk: string | Buffer) => {
+          const chunkStr = chunk.toString();
+          buffer += chunkStr;
           const lines = buffer.split('\n');
           buffer = lines.pop() || '';
 
@@ -256,8 +308,10 @@ export class SessionWatcher extends EventEmitter {
               try {
                 const data = JSON.parse(line);
                 const sessionData = this.sessions.get(sessionId);
-                this.processMessage(sessionData, data);
-                this.emit('message', { sessionId, data, sessionData });
+                if (sessionData) {
+                  this.processMessage(sessionData, data);
+                  this.emit('message', { sessionId, data, sessionData } as MessageEvent);
+                }
               } catch (e) {
                 // 無効なJSON行はスキップ
               }
@@ -273,27 +327,24 @@ export class SessionWatcher extends EventEmitter {
       }
       // stats.size === lastPosition の場合は何もしない（変更なし）
     } catch (error) {
-      this.emit('error', { sessionId, error });
+      this.emit('error', { sessionId, error } as ErrorEvent);
     }
   }
 
-  processMessage(sessionData, data) {
+  processMessage(sessionData: SessionData, data: any): void {
     // Detect /compact
     if (data.message?.content?.includes('[Previous conversation summary') || 
         data.message?.content?.includes('Previous conversation compacted')) {
       sessionData.isCompacted = true;
     }
     
-
     if (!sessionData.startTime && data.timestamp) {
       sessionData.startTime = new Date(data.timestamp);
     }
 
-
     if (data.message?.model) {
       sessionData.model = data.message.model;
     }
-
 
     if (data.message?.usage) {
       const usage = data.message.usage;
@@ -308,7 +359,6 @@ export class SessionWatcher extends EventEmitter {
       // Store cache tokens separately
       sessionData.totalCacheTokens = cacheReadTokens;
       
-
       if (data.message?.role === 'assistant') {
         sessionData.turns++;
       }
@@ -326,7 +376,7 @@ export class SessionWatcher extends EventEmitter {
     // Store latest user prompt
     if (data.message?.role === 'user' && data.message?.content) {
       const content = Array.isArray(data.message.content) 
-        ? data.message.content.find(c => c.type === 'text')?.text || ''
+        ? data.message.content.find((c: any) => c.type === 'text')?.text || ''
         : data.message.content;
       
       if (content) {
@@ -338,7 +388,7 @@ export class SessionWatcher extends EventEmitter {
     sessionData.messages.push(data);
   }
 
-  stopWatching(sessionId) {
+  stopWatching(sessionId: string): void {
     const watcher = this.watchers.get(sessionId);
     if (watcher) {
       watcher.close();
@@ -349,7 +399,7 @@ export class SessionWatcher extends EventEmitter {
     }
   }
 
-  stopAll() {
+  stopAll(): void {
     for (const sessionId of this.watchers.keys()) {
       this.stopWatching(sessionId);
     }

@@ -1,17 +1,47 @@
 import blessed from 'blessed';
-import chalk from 'chalk';
+// import chalk from 'chalk';
 import stringWidth from 'string-width';
 
+interface SessionData {
+  sessionId: string;
+  modelName?: string;
+  usagePercentage: number;
+  turns: number;
+  totalCost?: number;
+  lastModified: Date | number;
+  latestPrompt?: string;
+  autoCompact?: {
+    enabled?: boolean;
+    remainingPercentage: number;
+    thresholdPercentage?: number;
+    warningLevel?: string;
+  };
+}
+
+interface Boxes {
+  container: blessed.Widgets.BoxElement;
+  header: blessed.Widgets.BoxElement;
+  sessionsTable: blessed.Widgets.ListTableElement;
+  statusBar: blessed.Widgets.BoxElement;
+  summary: blessed.Widgets.BoxElement;
+}
+
 export class SessionsLiveView {
+  private screen: blessed.Widgets.Screen | null;
+  private boxes: Partial<Boxes>;
+  public sessions: SessionData[];
+  private updateInterval: NodeJS.Timeout | null;
+  // private selectedIndex: number; // 選択中の行インデックスを保存
+
   constructor() {
     this.screen = null;
     this.boxes = {};
     this.sessions = [];
     this.updateInterval = null;
-    this.selectedIndex = 0; // 選択中の行インデックスを保存
+    // this.selectedIndex = 0;
   }
 
-  init() {
+  init(): void {
     // Blessedスクリーンの初期化
     this.screen = blessed.screen({
       smartCSR: true,
@@ -54,8 +84,7 @@ export class SessionsLiveView {
       width: '100%',
       height: '100%-5',
       border: {
-        type: 'line',
-        fg: 'gray'
+        type: 'line'
       },
       label: ' Active Sessions ',
       style: {
@@ -125,7 +154,9 @@ export class SessionsLiveView {
     });
 
     // テーブルにフォーカスを設定
-    this.boxes.sessionsTable.focus();
+    if (this.boxes.sessionsTable) {
+      this.boxes.sessionsTable.focus();
+    }
 
     // テーブルヘッダーの設定
     this.updateTableHeader();
@@ -133,17 +164,17 @@ export class SessionsLiveView {
     this.screen.render();
   }
 
-  formatHeader() {
+  private formatHeader(): string {
     return `+-- Claude Code Sessions Monitor ------------------------+
 | Real-time monitoring of all Claude Code sessions       |
 +--------------------------------------------------------+`;
   }
 
-  formatStatusBar() {
+  private formatStatusBar(): string {
     return '[Live] Auto-refreshing every 1s (↑↓: navigate, q: exit, r: refresh)';
   }
 
-  updateTableHeader() {
+  private updateTableHeader(): void {
     const headers = [
       'Session',
       'Usage',
@@ -154,19 +185,21 @@ export class SessionsLiveView {
       'Latest Prompt'
     ];
     
-    this.boxes.sessionsTable.setData([headers]);
+    if (this.boxes.sessionsTable) {
+      this.boxes.sessionsTable.setData([headers]);
+    }
   }
 
-  updateSessions(sessionsData) {
+  updateSessions(sessionsData: SessionData[]): void {
     this.sessions = sessionsData;
     
-    if (!this.screen) return;
+    if (!this.screen || !this.boxes.sessionsTable) return;
 
     // 現在の選択位置を保存
-    const currentSelected = this.boxes.sessionsTable.selected;
+    const currentSelected = (this.boxes.sessionsTable as any).selectedIndex;
 
     // テーブルデータの準備
-    const tableData = [
+    const tableData: string[][] = [
       // ヘッダー行
       [
         'No.',
@@ -211,7 +244,7 @@ export class SessionsLiveView {
     this.render();
   }
 
-  formatUsage(percentage) {
+  private formatUsage(percentage: number): string {
     // percentageがundefinedまたはnullの場合のデフォルト値
     const safePercentage = Math.max(0, Math.min(100, percentage ?? 0));
     
@@ -226,7 +259,7 @@ export class SessionsLiveView {
     return `[${bar}] ${percentStr.padStart(5)}`;
   }
 
-  formatAge(date) {
+  private formatAge(date: Date | number): string {
     const now = Date.now();
     const age = now - (date instanceof Date ? date.getTime() : date);
     const seconds = Math.floor(age / 1000);
@@ -240,17 +273,18 @@ export class SessionsLiveView {
     return `${seconds}s ago`;
   }
 
-  formatCost(cost) {
+  private formatCost(cost: number): string {
     const safeCost = cost ?? 0;
     return `$${safeCost.toFixed(2)}`;
   }
 
-  formatAutoCompact(autoCompact) {
-    if (!autoCompact?.enabled) {
+  private formatAutoCompact(autoCompact?: SessionData['autoCompact']): string {
+    // autoCompactが存在しない、またはenabledが明示的にfalseの場合のみN/A
+    if (!autoCompact || autoCompact.enabled === false) {
       return 'N/A';
     }
 
-    const { remainingPercentage, thresholdPercentage, warningLevel } = autoCompact;
+    const { remainingPercentage, warningLevel } = autoCompact;
     
     if (remainingPercentage <= 0) {
       return 'ACTIVE!';
@@ -272,7 +306,7 @@ export class SessionsLiveView {
     }
   }
 
-  truncatePrompt(prompt, maxLength) {
+  private truncatePrompt(prompt: string | undefined, maxLength: number): string {
     if (!prompt) return 'No prompt yet';
     
     // デバッグ: プロンプトの内容を確認
@@ -304,7 +338,9 @@ export class SessionsLiveView {
     return result;
   }
 
-  updateSummary(sessions) {
+  private updateSummary(sessions: SessionData[]): void {
+    if (!this.boxes.summary) return;
+
     const totalSessions = sessions.length;
     const activeSessions = sessions.filter(s => {
       const age = Date.now() - (s.lastModified instanceof Date ? s.lastModified.getTime() : s.lastModified);
@@ -313,7 +349,7 @@ export class SessionsLiveView {
     
     const avgUsage = sessions.length > 0 
       ? (sessions.reduce((sum, s) => sum + s.usagePercentage, 0) / sessions.length).toFixed(1)
-      : 0;
+      : '0';
     
     const summary = `Total: ${totalSessions} sessions | ` +
                    `Active (1h): ${activeSessions} | ` +
@@ -322,7 +358,7 @@ export class SessionsLiveView {
     this.boxes.summary.setContent(summary);
   }
 
-  showError(message) {
+  showError(message: string): void {
     if (!this.screen) return;
     
     const errorBox = blessed.message({
@@ -332,14 +368,13 @@ export class SessionsLiveView {
       width: '50%',
       height: 'shrink',
       border: {
-        type: 'line',
-        fg: 'red'
+        type: 'line'
       },
       style: {
         fg: 'white',
         bg: 'red',
         border: {
-          fg: 'red'
+          fg: 'white'
         }
       }
     });
@@ -349,27 +384,27 @@ export class SessionsLiveView {
     });
   }
 
-  startAutoRefresh(refreshCallback) {
+  startAutoRefresh(refreshCallback: () => void): void {
     // 1秒ごとに更新 - レガシー実装用
     this.updateInterval = setInterval(() => {
       refreshCallback();
     }, 1000);
   }
 
-  stopAutoRefresh() {
+  stopAutoRefresh(): void {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
     }
   }
 
-  render() {
+  render(): void {
     if (this.screen) {
       this.screen.render();
     }
   }
 
-  destroy() {
+  destroy(): void {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
     }

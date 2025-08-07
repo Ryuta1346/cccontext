@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SessionsManager } from '../src/monitor/sessions-manager.mjs';
+import { SessionsManager } from '../src/monitor/sessions-manager.ts';
 import { EventEmitter } from 'events';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 
 // Mock the cache parseSessionFile to parseAndCacheSession
-vi.mock('../src/monitor/session-cache.mjs', () => {
+vi.mock('../src/monitor/session-cache.js', () => {
   return {
     SessionCache: vi.fn().mockImplementation(() => {
       const cache = new Map();

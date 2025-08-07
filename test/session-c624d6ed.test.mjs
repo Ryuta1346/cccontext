@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { ContextTracker } from '../src/monitor/context-tracker.mjs';
-import { calculateAutoCompactInfo } from '../src/monitor/claude-calculation.mjs';
+import { ContextTracker } from '../src/monitor/context-tracker.ts';
+import { calculateAutoCompactInfo } from '../src/monitor/claude-calculation.ts';
 
 describe('Session c624d6ed-1eba-45e6-b3e5-db18aea5f551 calculation', () => {
   it('should match expected calculator results', () => {

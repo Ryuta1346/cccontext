@@ -1,5 +1,27 @@
 // AutoCompact configuration
-export const AUTO_COMPACT_CONFIG = {
+
+interface SystemOverhead {
+  BASE: number;
+  PER_MESSAGE: number;
+  CACHE_FACTOR: number;
+  MAX_RATIO: number;
+}
+
+interface ModelThresholds {
+  [key: string]: number;
+}
+
+type WarningLevel = 'active' | 'critical' | 'warning' | 'notice' | 'normal';
+
+interface AutoCompactConfiguration {
+  DEFAULT_THRESHOLD: number;
+  SYSTEM_OVERHEAD: SystemOverhead;
+  MODEL_THRESHOLDS: ModelThresholds;
+  getThreshold(model: string): number;
+  getWarningLevel(remainingPercentage: number): WarningLevel;
+}
+
+export const AUTO_COMPACT_CONFIG: AutoCompactConfiguration = {
   DEFAULT_THRESHOLD: 0.92, // Trigger at 92%
   
   SYSTEM_OVERHEAD: {
@@ -22,11 +44,11 @@ export const AUTO_COMPACT_CONFIG = {
     'claude-instant-1.2': 0.92
   },
   
-  getThreshold(model) {
+  getThreshold(model: string): number {
     return this.MODEL_THRESHOLDS[model] || this.DEFAULT_THRESHOLD;
   },
   
-  getWarningLevel(remainingPercentage) {
+  getWarningLevel(remainingPercentage: number): WarningLevel {
     if (remainingPercentage <= 0) return 'active';
     if (remainingPercentage < 5) return 'critical';
     if (remainingPercentage < 10) return 'warning';

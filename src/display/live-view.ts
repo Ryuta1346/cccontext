@@ -1,15 +1,61 @@
 import blessed from 'blessed';
 import chalk from 'chalk';
 
+interface ContextInfo {
+  sessionId: string;
+  modelName: string;
+  usagePercentage: number;
+  contextWindow: number;
+  totalTokens: number;
+  remainingTokens: number;
+  remainingPercentage: number;
+  warningLevel: 'normal' | 'warning' | 'severe' | 'critical';
+  startTime?: number | string | Date;
+  turns: number;
+  totalCost: number;
+  averageTokensPerTurn: number;
+  estimatedRemainingTurns: number;
+  latestPrompt?: string;
+  autoCompact?: {
+    enabled?: boolean;
+    warningLevel?: string;
+    thresholdPercentage?: number;
+    remainingPercentage: number;
+  };
+  latestTurn?: {
+    input: number;
+    output: number;
+    cache: number;
+    total: number;
+    percentage: number;
+  };
+}
+
+interface Boxes {
+  container: blessed.Widgets.BoxElement;
+  header: blessed.Widgets.BoxElement;
+  sessionInfo: blessed.Widgets.BoxElement;
+  contextUsage: blessed.Widgets.BoxElement;
+  latestTurn: blessed.Widgets.BoxElement;
+  latestPrompt: blessed.Widgets.BoxElement;
+  sessionTotals: blessed.Widgets.BoxElement;
+  statusBar: blessed.Widgets.BoxElement;
+}
+
 export class LiveView {
+  private screen: blessed.Widgets.Screen | null;
+  private boxes: Partial<Boxes>;
+  // private contextInfo: ContextInfo | null;
+  private updateInterval: NodeJS.Timeout | null;
+
   constructor() {
     this.screen = null;
     this.boxes = {};
-    this.contextInfo = null;
+    // this.contextInfo = null;
     this.updateInterval = null;
   }
 
-  init() {
+  init(): void {
     // Blessedスクリーンの初期化
     this.screen = blessed.screen({
       smartCSR: true,
@@ -52,15 +98,14 @@ export class LiveView {
       width: '100%',
       height: 4,
       border: {
-        type: 'line',
-        fg: 'gray'
+        type: 'line'
       },
       label: ' Session Info ',
       style: {
         fg: 'white',
         bg: 'black',
         border: {
-          fg: 'gray'
+          fg: 'white'
         }
       }
     });
@@ -73,15 +118,14 @@ export class LiveView {
       width: '100%',
       height: 7,
       border: {
-        type: 'line',
-        fg: 'gray'
+        type: 'line'
       },
       label: ' Context Usage ',
       style: {
         fg: 'white',
         bg: 'black',
         border: {
-          fg: 'gray'
+          fg: 'white'
         }
       }
     });
@@ -94,15 +138,14 @@ export class LiveView {
       width: '100%',
       height: 6,
       border: {
-        type: 'line',
-        fg: 'gray'
+        type: 'line'
       },
       label: ' Latest Turn ',
       style: {
         fg: 'white',
         bg: 'black',
         border: {
-          fg: 'gray'
+          fg: 'white'
         }
       }
     });
@@ -115,15 +158,14 @@ export class LiveView {
       width: '100%',
       height: 4,
       border: {
-        type: 'line',
-        fg: 'gray'
+        type: 'line'
       },
       label: ' Latest Prompt ',
       style: {
         fg: 'white',
         bg: 'black',
         border: {
-          fg: 'gray'
+          fg: 'white'
         }
       }
     });
@@ -136,15 +178,14 @@ export class LiveView {
       width: '100%',
       height: 6,
       border: {
-        type: 'line',
-        fg: 'gray'
+        type: 'line'
       },
       label: ' Session Totals ',
       style: {
         fg: 'white',
         bg: 'black',
         border: {
-          fg: 'gray'
+          fg: 'white'
         }
       }
     });
@@ -176,45 +217,53 @@ export class LiveView {
     this.screen.render();
   }
 
-  formatHeader() {
+  private formatHeader(): string {
     return `
 ╭─ Claude Code Context Monitor ─────────────────────────╮
 │ Real-time context usage tracking for Claude Code      │
 ╰───────────────────────────────────────────────────────╯`;
   }
 
-  updateContextInfo(info) {
-    this.contextInfo = info;
+  updateContextInfo(info: ContextInfo): void {
+    // this.contextInfo = info;
     
     if (!this.screen) return;
 
     // セッション情報の更新
-    this.boxes.sessionInfo.setContent(this.formatSessionInfo(info));
+    if (this.boxes.sessionInfo) {
+      this.boxes.sessionInfo.setContent(this.formatSessionInfo(info));
+    }
 
     // コンテキスト使用量の更新
-    this.boxes.contextUsage.setContent(this.formatContextUsage(info));
+    if (this.boxes.contextUsage) {
+      this.boxes.contextUsage.setContent(this.formatContextUsage(info));
+    }
 
     // 最新ターン情報の更新
-    if (info.latestTurn) {
+    if (info.latestTurn && this.boxes.latestTurn) {
       this.boxes.latestTurn.setContent(this.formatLatestTurn(info));
     }
 
     // 最新プロンプトの更新
-    if (info.latestPrompt) {
+    if (info.latestPrompt && this.boxes.latestPrompt) {
       this.boxes.latestPrompt.setContent(this.formatLatestPrompt(info));
     }
 
     // セッション合計の更新
-    this.boxes.sessionTotals.setContent(this.formatSessionTotals(info));
+    if (this.boxes.sessionTotals) {
+      this.boxes.sessionTotals.setContent(this.formatSessionTotals(info));
+    }
 
     // 警告レベルに応じて枠線の色を変更
     const borderColor = this.getBorderColor(info.warningLevel);
-    this.boxes.contextUsage.style.border.fg = borderColor;
+    if (this.boxes.contextUsage && this.boxes.contextUsage.style.border) {
+      this.boxes.contextUsage.style.border.fg = borderColor;
+    }
 
     this.render();
   }
 
-  formatSessionInfo(info) {
+  private formatSessionInfo(info: ContextInfo): string {
     const duration = this.calculateDuration(info.startTime);
     return `
 Session: ${chalk.yellow(info.sessionId.substring(0, 16))}...
@@ -222,7 +271,7 @@ Model: ${chalk.cyan(info.modelName)}
 Started: ${chalk.gray(duration)} ago`;
   }
 
-  formatContextUsage(info) {
+  private formatContextUsage(info: ContextInfo): string {
     const percentage = info.usagePercentage.toFixed(1);
     const bar = this.createProgressBar(info.usagePercentage);
     const color = this.getPercentageColor(info.usagePercentage);
@@ -231,24 +280,24 @@ Started: ${chalk.gray(duration)} ago`;
     let autoCompactInfo = '';
     if (info.autoCompact?.enabled) {
       const ac = info.autoCompact;
-      const acColor = this.getAutoCompactColor(ac.warningLevel);
+      const acColor = this.getAutoCompactColor(ac.warningLevel || 'normal');
       
       if (ac.remainingPercentage > 0) {
-        autoCompactInfo = `\nAuto-compact: ${chalk[acColor](`at ${ac.thresholdPercentage}% (until ${ac.remainingPercentage.toFixed(1)}%)`)}`;
+        autoCompactInfo = `\nLeft until Auto-compact: ${(chalk as any)[acColor](`${ac.remainingPercentage.toFixed(1)}%`)}`;
       } else {
         autoCompactInfo = `\n${chalk.red.bold('AUTO-COMPACT ACTIVE')}`;
       }
     }
     
     return `
-${bar} ${chalk[color](percentage + '%')} (${this.formatTokens(info.totalTokens)}/${this.formatTokens(info.contextWindow)})
+${bar} ${(chalk as any)[color](percentage + '%')} (${this.formatTokens(info.totalTokens)}/${this.formatTokens(info.contextWindow)})
 
 Remaining: ${chalk.green(this.formatTokens(info.remainingTokens))} tokens (${info.remainingPercentage.toFixed(1)}%)${autoCompactInfo}
 ${this.getWarningMessage(info)}`;
   }
 
-  formatLatestTurn(info) {
-    const turn = info.latestTurn;
+  private formatLatestTurn(info: ContextInfo): string {
+    const turn = info.latestTurn!;
     return `
 Input:  ${chalk.blue(this.formatTokens(turn.input))} tokens
 Output: ${chalk.magenta(this.formatTokens(turn.output))} tokens
@@ -256,7 +305,7 @@ Cache:  ${chalk.gray(this.formatTokens(turn.cache))} tokens (read)
 Total:  ${chalk.yellow(this.formatTokens(turn.total))} tokens (${turn.percentage.toFixed(2)}% of window)`;
   }
 
-  formatLatestPrompt(info) {
+  private formatLatestPrompt(info: ContextInfo): string {
     const prompt = info.latestPrompt || 'No prompt yet';
     const lines = prompt.split('\n');
     const maxLines = 2;
@@ -269,7 +318,7 @@ Total:  ${chalk.yellow(this.formatTokens(turn.total))} tokens (${turn.percentage
     return `\n${chalk.dim(displayText)}`;
   }
 
-  formatSessionTotals(info) {
+  private formatSessionTotals(info: ContextInfo): string {
     return `
 Turns: ${chalk.cyan(info.turns)}
 Total Tokens: ${chalk.yellow(this.formatTokens(info.totalTokens))}
@@ -278,20 +327,20 @@ Avg/Turn: ${chalk.gray(this.formatTokens(info.averageTokensPerTurn))}
 Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '∞' : info.estimatedRemainingTurns)}`;
   }
 
-  createProgressBar(percentage) {
+  private createProgressBar(percentage: number): string {
     const width = 40;
     const safePercentage = Math.max(0, Math.min(100, percentage || 0));
     const filled = Math.max(0, Math.min(width, Math.round((safePercentage / 100) * width)));
     const empty = Math.max(0, width - filled);
     
     const color = this.getPercentageColor(safePercentage);
-    const filledChar = chalk[color]('█');
+    const filledChar = (chalk as any)[color]('█');
     const emptyChar = chalk.gray('░');
     
     return filledChar.repeat(filled) + emptyChar.repeat(empty);
   }
 
-  getPercentageColor(percentage) {
+  private getPercentageColor(percentage: number): string {
     if (percentage >= 95) return 'red';
     if (percentage >= 90) return 'redBright';
     if (percentage >= 80) return 'yellow';
@@ -299,7 +348,7 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
     return 'green';
   }
 
-  getBorderColor(warningLevel) {
+  private getBorderColor(warningLevel: string): string {
     switch (warningLevel) {
       case 'critical': return 'red';
       case 'severe': return 'redBright';
@@ -308,7 +357,7 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
     }
   }
 
-  getAutoCompactColor(warningLevel) {
+  private getAutoCompactColor(warningLevel: string): string {
     switch (warningLevel) {
       case 'active': return 'red';
       case 'critical': return 'red';
@@ -318,7 +367,7 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
     }
   }
 
-  getWarningMessage(info) {
+  private getWarningMessage(info: ContextInfo): string {
     switch (info.warningLevel) {
       case 'critical':
         return chalk.red('⚠️  CRITICAL: Context limit nearly reached!');
@@ -331,7 +380,7 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
     }
   }
 
-  formatTokens(tokens) {
+  private formatTokens(tokens: number): string {
     if (tokens >= 1_000_000) {
       return `${(tokens / 1_000_000).toFixed(1)}M`;
     } else if (tokens >= 1_000) {
@@ -340,11 +389,11 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
     return tokens.toString();
   }
 
-  formatCost(cost) {
+  private formatCost(cost: number): string {
     return `$${cost.toFixed(2)}`;
   }
 
-  calculateDuration(startTime) {
+  private calculateDuration(startTime: number | string | Date | undefined): string {
     if (!startTime) return 'Unknown';
     
     const duration = Date.now() - new Date(startTime).getTime();
@@ -357,7 +406,7 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
     return `${minutes}m`;
   }
 
-  showError(message) {
+  showError(message: string): void {
     if (!this.screen) return;
     
     const errorBox = blessed.message({
@@ -367,14 +416,13 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
       width: '50%',
       height: 'shrink',
       border: {
-        type: 'line',
-        fg: 'red'
+        type: 'line'
       },
       style: {
         fg: 'white',
         bg: 'red',
         border: {
-          fg: 'red'
+          fg: 'white'
         }
       }
     });
@@ -384,26 +432,30 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? '
     });
   }
 
-  showMessage(message) {
+  showMessage(message: string): void {
     if (!this.screen) return;
     
-    this.boxes.statusBar.setContent(message);
-    this.render();
-    
-    // 3秒後に元のメッセージに戻す
-    setTimeout(() => {
-      this.boxes.statusBar.setContent('[Live] Watching for updates... (q to exit, r to refresh)');
+    if (this.boxes.statusBar) {
+      this.boxes.statusBar.setContent(message);
       this.render();
-    }, 3000);
+      
+      // 3秒後に元のメッセージに戻す
+      setTimeout(() => {
+        if (this.boxes.statusBar) {
+          this.boxes.statusBar.setContent('[Live] Watching for updates... (q to exit, r to refresh)');
+          this.render();
+        }
+      }, 3000);
+    }
   }
 
-  render() {
+  render(): void {
     if (this.screen) {
       this.screen.render();
     }
   }
 
-  destroy() {
+  destroy(): void {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
     }

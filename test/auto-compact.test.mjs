@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { AUTO_COMPACT_CONFIG } from '../src/monitor/auto-compact-config.mjs';
-import { ContextTracker } from '../src/monitor/context-tracker.mjs';
-import { calculateAutoCompactInfo, CLAUDE_CONSTANTS } from '../src/monitor/claude-calculation.mjs';
+import { AUTO_COMPACT_CONFIG } from '../src/monitor/auto-compact-config.ts';
+import { ContextTracker } from '../src/monitor/context-tracker.ts';
+import { calculateAutoCompactInfo, CLAUDE_CONSTANTS } from '../src/monitor/claude-calculation.ts';
 
 describe('AutoCompact Configuration', () => {
   it('should have correct default threshold', () => {
@@ -229,7 +229,7 @@ describe('Claude Calculation Module', () => {
   });
   
   it('should calculate system overhead correctly', async () => {
-    const { calculateSystemOverhead } = await import('../src/monitor/claude-calculation.mjs');
+    const { calculateSystemOverhead } = await import('../src/monitor/claude-calculation.js');
     
     // Base overhead only
     expect(calculateSystemOverhead()).toBe(25000);
