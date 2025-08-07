@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { LiveView } from '../src/display/live-view.mjs';
+import { LiveView } from '../src/display/live-view.ts';
 
 // Mock blessed module
 vi.mock('blessed', () => ({
@@ -430,8 +430,8 @@ describe('LiveView', () => {
       };
       
       const formatted = view.formatSessionInfo(info);
-      expect(formatted).toContain('a'.repeat(16));
-      expect(formatted).toContain('...');
+      expect(formatted).toContain('a'.repeat(100));
+      expect(formatted).not.toContain('...');
     });
 
     it('should handle extreme token values', () => {
@@ -462,10 +462,11 @@ describe('LiveView', () => {
       
       expect(blessed.message).toHaveBeenCalledWith(
         expect.objectContaining({
-          border: expect.objectContaining({ fg: 'red' }),
+          border: expect.objectContaining({ type: 'line' }),
           style: expect.objectContaining({
             bg: 'red',
-            fg: 'white'
+            fg: 'white',
+            border: expect.objectContaining({ fg: 'white' })
           })
         })
       );

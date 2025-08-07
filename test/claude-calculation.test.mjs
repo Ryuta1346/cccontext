@@ -4,7 +4,7 @@ import {
   calculateSystemOverhead, 
   CLAUDE_CONSTANTS as CONSTANTS,
   generateClaudeDisplayMessage as generateDisplayMessage
-} from '../src/monitor/claude-calculation.mjs';
+} from '../src/monitor/claude-calculation.ts';
 
 describe('Claude Calculation', () => {
   describe('calculateSystemOverhead', () => {

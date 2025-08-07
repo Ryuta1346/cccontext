@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect } from 'vitest';
-import { SessionsLiveView } from '../../src/display/sessions-live-view.mjs';
+import { SessionsLiveView } from '../../src/display/sessions-live-view.ts';
 
 describe('SessionsLiveView', () => {
   let sessionsView;

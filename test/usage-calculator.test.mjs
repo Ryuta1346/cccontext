@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { UsageCalculator } from '../src/monitor/usage-calculator.mjs';
+import { UsageCalculator } from '../src/monitor/usage-calculator.ts';
 
 describe('UsageCalculator', () => {
   describe('Error Cases', () => {

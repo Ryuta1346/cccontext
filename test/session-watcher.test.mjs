@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import chokidar from 'chokidar';
-import { SessionWatcher } from '../src/monitor/session-watcher.mjs';
+import { SessionWatcher } from '../src/monitor/session-watcher.ts';
 
 describe('SessionWatcher', () => {
   let tempDir;

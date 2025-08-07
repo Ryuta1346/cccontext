@@ -1,108 +1,153 @@
 import { EventEmitter } from 'events';
-import { SessionWatcher } from './session-watcher.mjs';
-import { SessionCache } from './session-cache.mjs';
-import { ContextTracker } from './context-tracker.mjs';
+import { SessionWatcher } from './session-watcher.js';
+import { SessionCache } from './session-cache.js';
+import { ContextTracker } from './context-tracker.js';
+
+interface SessionInfo {
+  sessionId: string;
+  model: string;
+  modelName: string;
+  contextWindow: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheTokens: number;
+  usagePercentage: number;
+  remainingTokens: number;
+  remainingPercentage: number;
+  totalCost: number;
+  turns: number;
+  averageTokensPerTurn: number;
+  estimatedRemainingTurns: number;
+  warningLevel: 'normal' | 'warning' | 'severe' | 'critical';
+  startTime?: number | string | Date;
+  lastUpdate: Date;
+  latestPrompt?: string;
+  latestPromptTime?: number | string | Date;
+  autoCompact: {
+    willTrigger: boolean;
+    threshold: number;
+    remainingPercentage: number;
+  };
+  lastModified?: Date;
+}
+
+interface SessionChangeEvent {
+  sessionId: string;
+  filePath: string;
+}
 
 /**
- * イベント駆動のセッション管理システム
+ * Event-driven session management system
  */
 export class EnhancedSessionsManager extends EventEmitter {
+  private watcher: SessionWatcher;
+  private cache: SessionCache;
+  private contextTracker: ContextTracker;
+  private updateBatch: Set<string>; // For batch updates
+  private batchTimeout: NodeJS.Timeout | null;
+  private isInitialized: boolean;
+  private debugMode: boolean;
+
   constructor() {
     super();
     this.watcher = new SessionWatcher();
     this.cache = new SessionCache();
     this.contextTracker = new ContextTracker();
-    this.updateBatch = new Set(); // バッチ更新用
+    this.updateBatch = new Set();
     this.batchTimeout = null;
     this.isInitialized = false;
     this.debugMode = false;
   }
 
-  setDebugMode(enabled) {
+  setDebugMode(enabled: boolean): void {
     this.debugMode = enabled;
     this.cache.setDebugMode(enabled);
   }
 
-  log(message) {
+  private log(message: string): void {
     if (this.debugMode) {
       console.error(`[EnhancedSessionsManager] ${new Date().toISOString()}: ${message}`);
     }
   }
 
-  async initialize() {
+  async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
     this.log('Initializing enhanced sessions manager...');
 
     try {
-      // ファイル監視イベントのセットアップ
+      // Setup file monitoring events
       this.setupFileWatchingEvents();
 
-      // ディレクトリ監視を開始
+      // Start directory monitoring
       await this.watcher.startDirectoryWatch();
       
-      // 初回セッション読み込み
+      // Initial session loading
       await this.loadAllSessions();
       
       this.isInitialized = true;
       this.log('Enhanced sessions manager initialized successfully');
       
     } catch (error) {
-      this.log(`Initialization error: ${error.message}`);
+      this.log(`Initialization error: ${(error as Error).message}`);
       throw error;
     }
   }
 
-  setupFileWatchingEvents() {
-    // 新しいセッションファイルが追加された時
-    this.watcher.on('session-added', async ({ sessionId, filePath }) => {
+  private setupFileWatchingEvents(): void {
+    // When a new session file is added
+    this.watcher.on('session-added', async (data: SessionChangeEvent) => {
+      const { sessionId, filePath } = data;
       this.log(`Session added: ${sessionId}`);
       this.scheduleUpdate(filePath);
     });
 
-    // セッションファイルが削除された時
-    this.watcher.on('session-removed', ({ sessionId, filePath }) => {
+    // When a session file is deleted
+    this.watcher.on('session-removed', (data: SessionChangeEvent) => {
+      const { sessionId, filePath } = data;
       this.log(`Session removed: ${sessionId}`);
       this.cache.clearSession(filePath);
       this.emitSessionsUpdate();
     });
 
-    // セッションファイルが更新された時（新しいメッセージなど）
-    this.watcher.on('session-updated', async ({ sessionId, filePath }) => {
+    // When a session file is updated (new messages, etc.)
+    this.watcher.on('session-updated', async (data: SessionChangeEvent) => {
+      const { sessionId, filePath } = data;
       this.log(`Session updated: ${sessionId}`);
-      this.cache.clearSession(filePath); // キャッシュをクリアして再読み込みを強制
+      this.cache.clearSession(filePath); // Clear cache to force reload
       this.scheduleUpdate(filePath);
     });
   }
 
   /**
-   * 初回の全セッション読み込み
+   * Initial loading of all sessions
    */
-  async loadAllSessions() {
+  async loadAllSessions(): Promise<void> {
     this.log('Loading all sessions...');
     
     try {
       const files = await this.watcher.getAllJsonlFiles();
       this.log(`Found ${files.length} session files`);
       
-      // 並列でセッションを読み込み（パフォーマンス向上）
+      // Load sessions in parallel for performance improvement
       const sessionPromises = files.map(file => this.loadSingleSession(file));
       const sessions = await Promise.all(sessionPromises);
-      const validSessions = sessions.filter(Boolean);
+      const validSessions = sessions.filter((session): session is SessionInfo => session !== null);
       
       this.log(`Successfully loaded ${validSessions.length} sessions`);
       this.emit('sessions-loaded', validSessions);
       
     } catch (error) {
-      this.log(`Error loading sessions: ${error.message}`);
+      this.log(`Error loading sessions: ${(error as Error).message}`);
       throw error;
     }
   }
 
   /**
-   * 単一セッションの読み込み
+   * Load a single session
    */
-  async loadSingleSession(filePath) {
+  async loadSingleSession(filePath: string): Promise<SessionInfo | null> {
     try {
       const sessionData = await this.cache.parseAndCacheSession(filePath);
       if (!sessionData) return null;
@@ -112,50 +157,47 @@ export class EnhancedSessionsManager extends EventEmitter {
         sessionId: sessionData.sessionId,
         model: sessionData.model,
         messages: [], // We're using parsed data, not raw messages
-        startTime: sessionData.firstTimestamp,
-        latestPrompt: sessionData.latestPrompt,
-        latestPromptTime: sessionData.lastTimestamp,
-        // Pass through pre-calculated values
         totalTokens: sessionData.totalTokens,
-        totalInputTokens: sessionData.totalInputTokens,
-        totalOutputTokens: sessionData.totalOutputTokens,
         totalCacheTokens: sessionData.totalCacheTokens,
-        totalCost: sessionData.totalCost,
-        turns: sessionData.turns
+        turns: sessionData.turns,
+        totalCost: sessionData.totalCost
       });
 
       // Return all context info including autoCompact
       return {
         ...contextInfo,
-        lastModified: sessionData.lastModified
+        lastModified: sessionData.lastModified instanceof Date ? sessionData.lastModified : undefined,
+        startTime: sessionData.firstTimestamp || undefined,
+        latestPrompt: sessionData.latestPrompt,
+        latestPromptTime: sessionData.lastTimestamp || undefined
       };
     } catch (error) {
-      this.log(`Error loading session ${filePath}: ${error.message}`);
+      this.log(`Error loading session ${filePath}: ${(error as Error).message}`);
       return null;
     }
   }
 
   /**
-   * バッチ更新のスケジューリング
+   * Schedule batch updates
    */
-  scheduleUpdate(filePath) {
+  private scheduleUpdate(filePath: string): void {
     this.updateBatch.add(filePath);
     
-    // 既存のタイムアウトをクリア
+    // Clear existing timeout
     if (this.batchTimeout) {
       clearTimeout(this.batchTimeout);
     }
 
-    // 100msのデバウンス - 複数の変更を一度に処理
+    // 100ms debounce - process multiple changes at once
     this.batchTimeout = setTimeout(async () => {
       await this.processBatchUpdate();
     }, 100);
   }
 
   /**
-   * バッチ更新の処理
+   * Process batch updates
    */
-  async processBatchUpdate() {
+  private async processBatchUpdate(): Promise<void> {
     if (this.updateBatch.size === 0) return;
 
     const filePaths = Array.from(this.updateBatch);
@@ -164,42 +206,42 @@ export class EnhancedSessionsManager extends EventEmitter {
     this.log(`Processing batch update for ${filePaths.length} files`);
 
     try {
-      // 更新されたセッションを並列で読み込み
+      // Load updated sessions in parallel
       const sessionPromises = filePaths.map(file => this.loadSingleSession(file));
       await Promise.all(sessionPromises);
       
-      // 全セッションの最新状態を取得して通知
+      // Get latest state of all sessions and notify
       this.emitSessionsUpdate();
       
     } catch (error) {
-      this.log(`Error in batch update: ${error.message}`);
+      this.log(`Error in batch update: ${(error as Error).message}`);
     }
   }
 
   /**
-   * セッション更新イベントの発行
+   * Emit session update events
    */
-  async emitSessionsUpdate() {
+  private async emitSessionsUpdate(): Promise<void> {
     try {
       const sessions = await this.getAllSessions();
       this.emit('sessions-updated', sessions);
     } catch (error) {
-      this.log(`Error emitting sessions update: ${error.message}`);
+      this.log(`Error emitting sessions update: ${(error as Error).message}`);
     }
   }
 
   /**
-   * 現在の全セッションを取得
+   * Get all current sessions
    */
-  async getAllSessions() {
+  async getAllSessions(): Promise<SessionInfo[]> {
     const files = await this.watcher.getAllJsonlFiles();
     const sessionPromises = files.map(file => this.loadSingleSession(file));
     const sessions = await Promise.all(sessionPromises);
     
     return sessions
-      .filter(Boolean)
+      .filter((session): session is SessionInfo => session !== null)
       .sort((a, b) => {
-        // 最終更新時刻で降順ソート
+        // Sort by last update time in descending order
         const aTime = a.lastModified?.getTime() || 0;
         const bTime = b.lastModified?.getTime() || 0;
         return bTime - aTime;
@@ -207,23 +249,30 @@ export class EnhancedSessionsManager extends EventEmitter {
   }
 
   /**
-   * アクティブなセッションを取得
+   * Get active session
    */
-  async getActiveSession() {
+  async getActiveSession(): Promise<{ sessionId: string; filePath: string } | null> {
     return this.watcher.findActiveSession();
   }
 
   /**
-   * キャッシュ統計を取得
+   * Get cache statistics
    */
-  getCacheStats() {
+  getCacheStats(): { cachedSessions: number; fileStats: number } {
     return this.cache.getCacheStats();
   }
 
   /**
-   * リソースのクリーンアップ
+   * Clear session cache
    */
-  destroy() {
+  clearCache(): void {
+    this.cache.clearAll();
+  }
+
+  /**
+   * Clean up resources
+   */
+  destroy(): void {
     this.log('Destroying enhanced sessions manager...');
     
     if (this.batchTimeout) {

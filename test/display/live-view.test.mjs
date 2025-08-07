@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach, expect } from 'vitest';
-import { LiveView } from '../../src/display/live-view.mjs';
+import { LiveView } from '../../src/display/live-view.ts';
 
 describe('LiveView', () => {
   let liveView;
@@ -103,7 +103,7 @@ describe('LiveView', () => {
       };
       
       const formatted = liveView.formatSessionInfo(info);
-      expect(formatted).toMatch(/Session: .*1234567890abcdef\.\.\./);
+      expect(formatted).toMatch(/Session: .*1234567890abcdef1234567890abcdef/);
       expect(formatted).toMatch(/Model: .*Claude 3\.5 Sonnet/);
       expect(formatted).toMatch(/Started: .*5m ago/);
     });

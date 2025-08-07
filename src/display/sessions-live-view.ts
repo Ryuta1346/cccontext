@@ -1,17 +1,34 @@
 import blessed from 'blessed';
-import chalk from 'chalk';
+// import chalk from 'chalk';
 import stringWidth from 'string-width';
+import type { SessionData } from '../types/index.js';
+
+// SessionData interface removed - using shared type from types/index.js
+
+interface Boxes {
+  container: blessed.Widgets.BoxElement;
+  header: blessed.Widgets.BoxElement;
+  sessionsTable: blessed.Widgets.ListTableElement;
+  statusBar: blessed.Widgets.BoxElement;
+  summary: blessed.Widgets.BoxElement;
+}
 
 export class SessionsLiveView {
+  private screen: blessed.Widgets.Screen | null;
+  public boxes: Partial<Boxes>;
+  public sessions: SessionData[];
+  private updateInterval: NodeJS.Timeout | null;
+  // private selectedIndex: number; // Store selected row index
+
   constructor() {
     this.screen = null;
     this.boxes = {};
     this.sessions = [];
     this.updateInterval = null;
-    this.selectedIndex = 0; // 選択中の行インデックスを保存
+    // this.selectedIndex = 0;
   }
 
-  init() {
+  init(): void {
     // Blessedスクリーンの初期化
     this.screen = blessed.screen({
       smartCSR: true,
@@ -19,7 +36,7 @@ export class SessionsLiveView {
       title: 'Claude Code Sessions Monitor'
     });
 
-    // メインコンテナ
+    // Main container
     this.boxes.container = blessed.box({
       parent: this.screen,
       top: 0,
@@ -32,7 +49,7 @@ export class SessionsLiveView {
       }
     });
 
-    // ヘッダー
+    // Header
     this.boxes.header = blessed.box({
       parent: this.boxes.container,
       top: 0,
@@ -46,7 +63,7 @@ export class SessionsLiveView {
       }
     });
 
-    // セッションテーブル
+    // Sessions table
     this.boxes.sessionsTable = blessed.listtable({
       parent: this.boxes.container,
       top: 3,
@@ -54,8 +71,7 @@ export class SessionsLiveView {
       width: '100%',
       height: '100%-5',
       border: {
-        type: 'line',
-        fg: 'gray'
+        type: 'line'
       },
       label: ' Active Sessions ',
       style: {
@@ -78,16 +94,16 @@ export class SessionsLiveView {
         }
       },
       tags: false,  // Unicode文字の表示問題を避けるため無効化
-      keys: true,   // キーボードナビゲーションを有効化
+      keys: true,   // Enable keyboard navigation
       vi: false,    // viモードを無効化（これが2行ジャンプの原因）
       mouse: true,
       selectedFg: 'black',
       selectedBg: 'cyan',
-      interactive: true,  // インタラクティブを有効化
+      interactive: true,  // Enable interactivity
       scrollable: true
     });
 
-    // ステータスバー
+    // Status bar
     this.boxes.statusBar = blessed.box({
       parent: this.boxes.container,
       bottom: 0,
@@ -101,7 +117,7 @@ export class SessionsLiveView {
       }
     });
 
-    // サマリー情報
+    // Summary info
     this.boxes.summary = blessed.box({
       parent: this.boxes.container,
       bottom: 1,
@@ -114,7 +130,7 @@ export class SessionsLiveView {
       }
     });
 
-    // キーバインディング
+    // Key bindings
     this.screen.key(['q', 'C-c'], () => {
       this.destroy();
       process.exit(0);
@@ -124,26 +140,28 @@ export class SessionsLiveView {
       this.render();
     });
 
-    // テーブルにフォーカスを設定
-    this.boxes.sessionsTable.focus();
+    // Set focus to table
+    if (this.boxes.sessionsTable) {
+      this.boxes.sessionsTable.focus();
+    }
 
-    // テーブルヘッダーの設定
+    // Setup table header
     this.updateTableHeader();
     
     this.screen.render();
   }
 
-  formatHeader() {
+  private formatHeader(): string {
     return `+-- Claude Code Sessions Monitor ------------------------+
 | Real-time monitoring of all Claude Code sessions       |
 +--------------------------------------------------------+`;
   }
 
-  formatStatusBar() {
+  private formatStatusBar(): string {
     return '[Live] Auto-refreshing every 1s (↑↓: navigate, q: exit, r: refresh)';
   }
 
-  updateTableHeader() {
+  private updateTableHeader(): void {
     const headers = [
       'Session',
       'Usage',
@@ -154,20 +172,25 @@ export class SessionsLiveView {
       'Latest Prompt'
     ];
     
-    this.boxes.sessionsTable.setData([headers]);
+    if (this.boxes.sessionsTable) {
+      this.boxes.sessionsTable.setData([headers]);
+    }
   }
 
-  updateSessions(sessionsData) {
+  updateSessions(sessionsData: SessionData[]): void {
     this.sessions = sessionsData;
     
-    if (!this.screen) return;
+    if (!this.screen || !this.boxes.sessionsTable) return;
 
-    // 現在の選択位置を保存
-    const currentSelected = this.boxes.sessionsTable.selected;
+    // Save current selection position
+    // selectedIndexプロパティは内部的に使用される可能性があるが、型定義に含まれていないため
+    // Type-safe access
+    const currentSelected = this.boxes.sessionsTable && 'selectedIndex' in this.boxes.sessionsTable ? 
+      (this.boxes.sessionsTable as { selectedIndex?: number }).selectedIndex : undefined;
 
-    // テーブルデータの準備
-    const tableData = [
-      // ヘッダー行
+    // Prepare table data
+    const tableData: string[][] = [
+      // Header row
       [
         'No.',
         'Session',
@@ -181,37 +204,37 @@ export class SessionsLiveView {
       ]
     ];
 
-    // セッションデータの追加
+    // Add session data
     sessionsData.forEach((session, index) => {
       const row = [
-        (index + 1).toString(),  // 番号を追加
-        session.sessionId.substring(0, 8),
-        this.formatUsage(session.usagePercentage),
+        (index + 1).toString(),  // Add number
+        session.sessionId,
+        this.formatUsage(session.usagePercentage || 0),
         this.formatAutoCompact(session.autoCompact),
         session.modelName || 'Unknown',
         session.turns.toString(),
         this.formatCost(session.totalCost || 0),
-        this.formatAge(session.lastModified),
+        this.formatAge(session.lastModified || new Date()),
         this.truncatePrompt(session.latestPrompt, 50)
       ];
       tableData.push(row);
     });
 
-    // テーブル更新
+    // Update table
     this.boxes.sessionsTable.setData(tableData);
 
-    // 選択位置を復元（範囲外にならないようチェック）
-    if (currentSelected > 0 && currentSelected < tableData.length) {
+    // Restore selection position (check to prevent out of range)
+    if (currentSelected != null && currentSelected > 0 && currentSelected < tableData.length) {
       this.boxes.sessionsTable.select(currentSelected);
     }
 
-    // サマリー情報の更新
+    // Update summary info
     this.updateSummary(sessionsData);
 
     this.render();
   }
 
-  formatUsage(percentage) {
+  private formatUsage(percentage: number): string {
     // percentageがundefinedまたはnullの場合のデフォルト値
     const safePercentage = Math.max(0, Math.min(100, percentage ?? 0));
     
@@ -219,14 +242,14 @@ export class SessionsLiveView {
     const filled = Math.max(0, Math.min(width, Math.round((safePercentage / 100) * width)));
     const empty = Math.max(0, width - filled);
     
-    // 通常のsessionsコマンドと同じ形式でプログレスバーを作成
+    // Create progress bar in same format as regular sessions command
     const bar = '█'.repeat(filled) + '░'.repeat(empty);
     
     const percentStr = safePercentage.toFixed(1) + '%';
     return `[${bar}] ${percentStr.padStart(5)}`;
   }
 
-  formatAge(date) {
+  private formatAge(date: Date | number): string {
     const now = Date.now();
     const age = now - (date instanceof Date ? date.getTime() : date);
     const seconds = Math.floor(age / 1000);
@@ -240,45 +263,43 @@ export class SessionsLiveView {
     return `${seconds}s ago`;
   }
 
-  formatCost(cost) {
+  private formatCost(cost: number): string {
     const safeCost = cost ?? 0;
     return `$${safeCost.toFixed(2)}`;
   }
 
-  formatAutoCompact(autoCompact) {
-    if (!autoCompact?.enabled) {
+  private formatAutoCompact(autoCompact: SessionData['autoCompact']): string {
+    if (!autoCompact) {
       return 'N/A';
     }
 
-    const { remainingPercentage, thresholdPercentage, warningLevel } = autoCompact;
+    const { remainingPercentage } = autoCompact;
     
+    // Show ACTIVE only when remaining percentage is actually 0 or below
     if (remainingPercentage <= 0) {
       return 'ACTIVE!';
     }
     
-    // 残り容量を % で表示
+    // Display remaining capacity in % (ignore willTrigger flag)
     const percentStr = remainingPercentage.toFixed(1) + '%';
     
-    // 警告レベルに応じた表示
-    switch (warningLevel) {
-      case 'critical':
-        return `!${percentStr}`;
-      case 'warning':
-        return `⚠ ${percentStr}`;
-      case 'notice':
-        return percentStr;
-      default:
-        return percentStr;
+    // Warning display based on thresholds
+    if (remainingPercentage <= 10) {
+      return `!${percentStr}`;
+    } else if (remainingPercentage <= 20) {
+      return `⚠ ${percentStr}`;
+    } else {
+      return percentStr;
     }
   }
 
-  truncatePrompt(prompt, maxLength) {
+  private truncatePrompt(prompt: string | undefined, maxLength: number): string {
     if (!prompt) return 'No prompt yet';
     
-    // デバッグ: プロンプトの内容を確認
+    // Debug: Check prompt content
     // console.error('DEBUG: Original prompt:', prompt);
     
-    // 改行や連続する空白を単一スペースに置換
+    // Replace line breaks and consecutive spaces with single space
     const cleanPrompt = prompt.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     
     // string-widthを使用して正確な表示幅を計算
@@ -304,16 +325,19 @@ export class SessionsLiveView {
     return result;
   }
 
-  updateSummary(sessions) {
+  private updateSummary(sessions: SessionData[]): void {
+    if (!this.boxes.summary) return;
+
     const totalSessions = sessions.length;
     const activeSessions = sessions.filter(s => {
-      const age = Date.now() - (s.lastModified instanceof Date ? s.lastModified.getTime() : s.lastModified);
+      const lastModified = s.lastModified || new Date();
+      const age = Date.now() - (lastModified instanceof Date ? lastModified.getTime() : lastModified);
       return age < 3600000; // 1時間以内
     }).length;
     
     const avgUsage = sessions.length > 0 
-      ? (sessions.reduce((sum, s) => sum + s.usagePercentage, 0) / sessions.length).toFixed(1)
-      : 0;
+      ? (sessions.reduce((sum, s) => sum + (s.usagePercentage || 0), 0) / sessions.length).toFixed(1)
+      : '0';
     
     const summary = `Total: ${totalSessions} sessions | ` +
                    `Active (1h): ${activeSessions} | ` +
@@ -322,7 +346,7 @@ export class SessionsLiveView {
     this.boxes.summary.setContent(summary);
   }
 
-  showError(message) {
+  showError(message: string): void {
     if (!this.screen) return;
     
     const errorBox = blessed.message({
@@ -332,14 +356,13 @@ export class SessionsLiveView {
       width: '50%',
       height: 'shrink',
       border: {
-        type: 'line',
-        fg: 'red'
+        type: 'line'
       },
       style: {
         fg: 'white',
         bg: 'red',
         border: {
-          fg: 'red'
+          fg: 'white'
         }
       }
     });
@@ -349,27 +372,27 @@ export class SessionsLiveView {
     });
   }
 
-  startAutoRefresh(refreshCallback) {
+  startAutoRefresh(refreshCallback: () => void): void {
     // 1秒ごとに更新 - レガシー実装用
     this.updateInterval = setInterval(() => {
       refreshCallback();
     }, 1000);
   }
 
-  stopAutoRefresh() {
+  stopAutoRefresh(): void {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
     }
   }
 
-  render() {
+  render(): void {
     if (this.screen) {
       this.screen.render();
     }
   }
 
-  destroy() {
+  destroy(): void {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
     }

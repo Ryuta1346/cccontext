@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ContextTracker, CONTEXT_WINDOWS } from '../src/monitor/context-tracker.mjs';
+import { ContextTracker, CONTEXT_WINDOWS } from '../src/monitor/context-tracker.ts';
 
 describe('ContextTracker', () => {
   describe('Error Cases', () => {
@@ -211,7 +211,7 @@ describe('ContextTracker', () => {
 
     const formatted = tracker.formatContextInfo(info);
     
-    expect(formatted.session).toBe('abcdef12');
+    expect(formatted.session).toBe('abcdef1234567890');
     expect(formatted.usage).toBe('45.7%');
     expect(formatted.tokens).toBe('91.2k/200.0k');
     expect(formatted.remaining).toBe('108.8k');

@@ -6,18 +6,18 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const cliPath = path.join(__dirname, '..', 'src', 'cli.mjs');
+const cliPath = path.join(__dirname, '..', 'dist', 'cli.js');
 
 describe('CLI', () => {
   let tempDir;
 
   beforeEach(async () => {
-    // 一時ディレクトリを作成
+    // Create temporary directory
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'cccontext-cli-test-'));
   });
 
   afterEach(async () => {
-    // 一時ディレクトリをクリーンアップ
+    // Clean up temporary directory
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
@@ -55,8 +55,8 @@ describe('CLI', () => {
   it('should validate sessions limit option', async () => {
     const output = await runCLI(['sessions', '--limit', 'not-a-number'], true, 2000);
     
-    // コマンドは実行されるが、内部でparseIntされるため数値以外は0として扱われる
-    // エラーハンドリングのテストとして、プロジェクトディレクトリが存在しない場合をシミュレート
+    // Command executes but non-numeric values are treated as 0 due to internal parseInt
+    // Test error handling by simulating non-existent project directory
     expect(output.length).toBeGreaterThanOrEqual(0); // 出力があることを確認
   }, 5000);
 

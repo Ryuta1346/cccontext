@@ -2,4 +2,13 @@ node_modules/
 .claude/temp/
 .serena/
 coverage/
+dist/
+
+# TypeScript build output
+*.js.map
+*.d.ts.map
+.tsbuildinfo
+
+# Backup files
+.backup-mjs/
 
