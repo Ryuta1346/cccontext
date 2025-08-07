@@ -39,12 +39,48 @@ export class SessionWatcher extends EventEmitter {
 
   constructor() {
     super();
-    this.projectsDir = path.join(os.homedir(), '.claude/projects');
+    
+    // 環境変数または標準パスを使用（セキュリティ改善）
+    const baseDir = process.env.CLAUDE_PROJECTS_DIR || 
+                   path.join(os.homedir(), '.claude/projects');
+    
+    // パス正規化で相対パスや ../ を解決
+    this.projectsDir = path.resolve(baseDir);
+    
+    // ディレクトリの存在と権限を検証
+    this.validateProjectsDir();
+    
     this.sessions = new Map();
     this.watchers = new Map();
     this.filePositions = new Map();
     this.directoryWatcher = null;
     this.cachedFiles = new Set();
+  }
+
+  /**
+   * プロジェクトディレクトリの検証
+   * ディレクトリが存在し、読み取り可能であることを確認
+   */
+  private validateProjectsDir(): void {
+    try {
+      const stats = fs.statSync(this.projectsDir);
+      if (!stats.isDirectory()) {
+        throw new Error(`${this.projectsDir} is not a directory`);
+      }
+      
+      // 読み取り権限のチェック
+      fs.accessSync(this.projectsDir, fs.constants.R_OK);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        // ディレクトリが存在しない場合は警告のみ
+        console.warn(`Claude projects directory not found: ${this.projectsDir}`);
+        console.warn('Sessions monitoring will not be available until the directory is created.');
+      } else if ((error as NodeJS.ErrnoException).code === 'EACCES') {
+        console.error(`No read permission for directory: ${this.projectsDir}`);
+      } else {
+        console.error(`Error accessing projects directory: ${(error as Error).message}`);
+      }
+    }
   }
 
   async findActiveSession(): Promise<ActiveSession | null> {
@@ -80,19 +116,41 @@ export class SessionWatcher extends EventEmitter {
     
     const walkDir = async (dir: string): Promise<void> => {
       try {
+        // ディレクトリパスの正規化と検証
+        const normalizedDir = path.resolve(dir);
+        
+        // プロジェクトディレクトリ外へのアクセスを防ぐ
+        if (!normalizedDir.startsWith(this.projectsDir)) {
+          console.warn(`Skipping directory outside projects path: ${normalizedDir}`);
+          return;
+        }
+        
         const entries = await fs.promises.readdir(dir, { withFileTypes: true });
         
         for (const entry of entries) {
           const fullPath = path.join(dir, entry.name);
           
+          // シンボリックリンクのチェック
+          if (entry.isSymbolicLink()) {
+            // シンボリックリンクは追跡しない（セキュリティ対策）
+            continue;
+          }
+          
           if (entry.isDirectory()) {
             await walkDir(fullPath);
           } else if (entry.isFile() && path.extname(entry.name) === '.jsonl') {
-            files.push(fullPath);
+            // ファイルパスも正規化して検証
+            const normalizedPath = path.resolve(fullPath);
+            if (normalizedPath.startsWith(this.projectsDir)) {
+              files.push(normalizedPath);
+            }
           }
         }
       } catch (error) {
-        // ディレクトリアクセスエラーは無視
+        // ディレクトリアクセスエラーは詳細にログ
+        if (process.env.DEBUG) {
+          console.debug(`Error accessing directory ${dir}: ${(error as Error).message}`);
+        }
       }
     };
 

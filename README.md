@@ -196,9 +196,22 @@ cccontext --help
 cccontext sessions --help
 ```
 
+### Environment Variables
+
+- `CLAUDE_PROJECTS_DIR`: Custom path to Claude projects directory (default: `~/.claude/projects`)
+  ```bash
+  # Example: Use custom directory
+  export CLAUDE_PROJECTS_DIR="/path/to/custom/claude/projects"
+  npx cccontext
+  ```
+- `DEBUG`: Enable debug logging for troubleshooting
+  ```bash
+  DEBUG=1 npx cccontext sessions
+  ```
+
 ### Required Permissions
 
-- Read access to `~/.claude/projects/` directory
+- Read access to `~/.claude/projects/` directory (or custom directory specified via `CLAUDE_PROJECTS_DIR`)
 - JSONL file read permissions
 
 ### System Requirements
