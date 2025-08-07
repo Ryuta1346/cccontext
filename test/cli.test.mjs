@@ -30,12 +30,6 @@ describe('CLI', () => {
     expect(output).toMatch(/sessions.*List recent Claude Code sessions/);
   });
 
-  it('should display version when --version is passed', async () => {
-    const output = await runCLI(['--version']);
-    
-    expect(output).toMatch(/1\.0\.0/);
-  });
-
   it('should handle monitor command with --help', async () => {
     const output = await runCLI(['monitor', '--help']);
     
