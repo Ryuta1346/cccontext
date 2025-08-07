@@ -1,25 +1,9 @@
 import blessed from 'blessed';
 // import chalk from 'chalk';
 import stringWidth from 'string-width';
+import type { SessionData } from '../types/index.js';
 
-interface SessionData {
-  sessionId: string;
-  file: string;
-  size: number;
-  model: string;
-  modelName?: string;
-  usagePercentage: number;
-  turns: number;
-  totalTokens: number;
-  totalCost?: number;
-  lastModified: Date | number;
-  latestPrompt?: string;
-  autoCompact: {
-    willTrigger: boolean;
-    threshold: number;
-    remainingPercentage: number;
-  };
-}
+// SessionData interface removed - using shared type from types/index.js
 
 interface Boxes {
   container: blessed.Widgets.BoxElement;
@@ -225,12 +209,12 @@ export class SessionsLiveView {
       const row = [
         (index + 1).toString(),  // 番号を追加
         session.sessionId.substring(0, 8),
-        this.formatUsage(session.usagePercentage),
+        this.formatUsage(session.usagePercentage || 0),
         this.formatAutoCompact(session.autoCompact),
         session.modelName || 'Unknown',
         session.turns.toString(),
         this.formatCost(session.totalCost || 0),
-        this.formatAge(session.lastModified),
+        this.formatAge(session.lastModified || new Date()),
         this.truncatePrompt(session.latestPrompt, 50)
       ];
       tableData.push(row);
@@ -289,13 +273,14 @@ export class SessionsLiveView {
       return 'N/A';
     }
 
-    const { remainingPercentage, willTrigger } = autoCompact;
+    const { remainingPercentage } = autoCompact;
     
-    if (remainingPercentage <= 0 || willTrigger) {
+    // 実際に残りパーセンテージが0以下の場合のみACTIVE表示
+    if (remainingPercentage <= 0) {
       return 'ACTIVE!';
     }
     
-    // 残り容量を % で表示
+    // 残り容量を % で表示（willTriggerフラグは無視）
     const percentStr = remainingPercentage.toFixed(1) + '%';
     
     // 閾値に基づいた警告表示
@@ -345,12 +330,13 @@ export class SessionsLiveView {
 
     const totalSessions = sessions.length;
     const activeSessions = sessions.filter(s => {
-      const age = Date.now() - (s.lastModified instanceof Date ? s.lastModified.getTime() : s.lastModified);
+      const lastModified = s.lastModified || new Date();
+      const age = Date.now() - (lastModified instanceof Date ? lastModified.getTime() : lastModified);
       return age < 3600000; // 1時間以内
     }).length;
     
     const avgUsage = sessions.length > 0 
-      ? (sessions.reduce((sum, s) => sum + s.usagePercentage, 0) / sessions.length).toFixed(1)
+      ? (sessions.reduce((sum, s) => sum + (s.usagePercentage || 0), 0) / sessions.length).toFixed(1)
       : '0';
     
     const summary = `Total: ${totalSessions} sessions | ` +

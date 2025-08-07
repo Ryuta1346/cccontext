@@ -166,7 +166,7 @@ export class EnhancedSessionsManager extends EventEmitter {
       // Return all context info including autoCompact
       return {
         ...contextInfo,
-        lastModified: sessionData.lastModified,
+        lastModified: sessionData.lastModified instanceof Date ? sessionData.lastModified : undefined,
         startTime: sessionData.firstTimestamp || undefined,
         latestPrompt: sessionData.latestPrompt,
         latestPromptTime: sessionData.lastTimestamp || undefined
@@ -260,6 +260,13 @@ export class EnhancedSessionsManager extends EventEmitter {
    */
   getCacheStats(): { cachedSessions: number; fileStats: number } {
     return this.cache.getCacheStats();
+  }
+
+  /**
+   * セッションキャッシュをクリア
+   */
+  clearCache(): void {
+    this.cache.clearAll();
   }
 
   /**

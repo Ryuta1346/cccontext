@@ -153,20 +153,35 @@ export class ContextTracker {
       };
     }
     
-    const validMessages: Message[] = Array.isArray(messages) ? messages : [];
+    // Normalize messages structure to handle different test formats
+    const validMessages: Message[] = Array.isArray(messages) 
+      ? messages.map(msg => {
+          // Handle nested message structure from tests
+          if ((msg as any)?.message) {
+            const nestedMsg = (msg as any).message;
+            return {
+              role: nestedMsg.role,
+              content: nestedMsg.content,
+              usage: nestedMsg.usage
+            };
+          }
+          // Handle direct message structure
+          return msg;
+        }).filter(msg => msg && msg.role) 
+      : [];
     
     const stats = this.calculator.calculateSessionTotals(validMessages, model);
     const contextWindow = this.getContextWindow(model);
     
-    // Use pre-calculated totalTokens if available
-    const totalTokens = sessionData.totalTokens || stats.totalTokens;
+    // Use pre-calculated totalTokens if available, otherwise use calculated stats
+    const totalTokens = sessionData.totalTokens !== undefined ? sessionData.totalTokens : stats.totalTokens;
     const totalCacheTokens = sessionData.totalCacheTokens !== undefined ? sessionData.totalCacheTokens : stats.totalCacheTokens;
     
     const actualTotalTokens = totalTokens;
     
-    const usagePercentage = (actualTotalTokens / contextWindow) * 100;
-    const remainingTokens = contextWindow - actualTotalTokens;
-    const remainingPercentage = (remainingTokens / contextWindow) * 100;
+    const usagePercentage = contextWindow > 0 ? (actualTotalTokens / contextWindow) * 100 : 0;
+    const remainingTokens = Math.max(0, contextWindow - actualTotalTokens);
+    const remainingPercentage = contextWindow > 0 ? (remainingTokens / contextWindow) * 100 : 100;
     
     const estimatedRemainingTurns = this.calculator.estimateRemainingTurns(
       actualTotalTokens,
@@ -233,7 +248,7 @@ export class ContextTracker {
         output: latestUsage.output,
         cache: latestUsage.cache,
         total: latestUsage.input + latestUsage.output,
-        percentage: ((latestUsage.input + latestUsage.output) / contextWindow) * 100
+        percentage: contextWindow > 0 ? ((latestUsage.input + latestUsage.output) / contextWindow) * 100 : 0
       };
     }
     

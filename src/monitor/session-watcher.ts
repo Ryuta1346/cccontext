@@ -366,6 +366,9 @@ export class SessionWatcher extends EventEmitter {
       }
     }
 
+    if (!sessionData.messages) {
+      sessionData.messages = [];
+    }
     sessionData.messages.push(data);
   }
 

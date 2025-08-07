@@ -1,29 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import { getModelName, calculateMessageCost, calculateUsagePercentage } from './model-config.js';
+import type { SessionData } from '../types/index.js';
 
 interface FileStats {
   mtimeMs: number;
   size: number;
 }
 
-interface SessionData {
-  sessionId: string;
-  model: string;
-  modelName: string;
-  turns: number;
-  totalTokens: number;
-  totalInputTokens: number;
-  totalOutputTokens: number;
-  totalCacheTokens: number;
-  totalCost: number;
-  latestPrompt: string;
-  lastModified: Date;
-  firstTimestamp: string | null;
-  lastTimestamp: string | null;
-  filePath: string;
-  usagePercentage: number;
-}
+// SessionData interface removed - using shared type from types/index.js
 
 interface MessageData {
   message?: {

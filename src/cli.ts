@@ -507,17 +507,10 @@ class CCContextCLI {
     try {
       console.log(chalk.yellow('🗑️  Clearing session cache...'));
       
-      // SessionsManagerからSessionCacheインスタンスを取得
-      const { SessionsManager } = await import('./monitor/sessions-manager.js');
-      const manager = new SessionsManager();
-      
-      // SessionsManagerのclearCacheメソッドを使用
-      if (typeof manager.clearCache === 'function') {
-        manager.clearCache();
-        console.log(chalk.green('✅ Session cache cleared successfully'));
-      } else {
-        console.log(chalk.yellow('⚠️  No session cache found'));
-      }
+      // EnhancedSessionsManagerを使用してキャッシュをクリア
+      const manager = new EnhancedSessionsManager();
+      manager.clearCache();
+      console.log(chalk.green('✅ Session cache cleared successfully'));
       
       process.exit(0);
     } catch (error) {
