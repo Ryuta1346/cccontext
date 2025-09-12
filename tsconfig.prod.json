@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Disable source maps for production
+    "sourceMap": false,
+    "declarationMap": false,
+    
+    // Disable incremental compilation for production
+    "incremental": false,
+    
+    // Import helpers from tslib to reduce bundle size
+    "importHelpers": true,
+    
+    // Additional optimizations
+    "removeComments": true
+  },
+  "exclude": ["node_modules", "dist", "test", "coverage", "**/*.test.ts", "**/*.spec.ts", "scripts"]
+}
