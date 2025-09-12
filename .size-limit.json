@@ -1,0 +1,23 @@
+[
+  {
+    "name": "CLI Entry Point",
+    "path": "dist/cli.js",
+    "limit": "30 KB"
+  },
+  {
+    "name": "All JavaScript Files",
+    "path": "dist/**/*.js",
+    "limit": "150 KB"
+  },
+  {
+    "name": "NPM Package Size",
+    "path": [
+      "dist/**/*.js",
+      "dist/**/*.d.ts",
+      "package.json",
+      "README.md",
+      "LICENSE"
+    ],
+    "limit": "200 KB"
+  }
+]
