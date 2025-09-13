@@ -24,6 +24,7 @@
     "build:prod": "tsc --project tsconfig.prod.json",
     "build:minify": "npm run build:prod && node scripts/build.mjs",
     "build:bundled": "node scripts/build-bundled.mjs",
+    "build:ultra": "node scripts/build-ultra-optimized.mjs",
     "build:watch": "tsc --watch",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
@@ -76,6 +77,7 @@
     "blessed": "^0.1.81",
     "chalk": "^5.3.0",
     "chokidar": "^4.0.1",
+    "cli-table3": "^0.6.5",
     "commander": "^12.1.0",
     "string-width": "^7.2.0",
     "tslib": "^2.8.1"
