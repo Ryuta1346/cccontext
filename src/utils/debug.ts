@@ -15,10 +15,12 @@ export const debug = {
 // Remove all debug code in production builds
 export function stripDebugCode(code: string): string {
   if (process.env.NODE_ENV === "production") {
+    let processedCode = code;
     // Remove debug.* calls
-    code = code.replace(/debug\.(log|error|warn|info)\([^)]*\);?/g, "");
-    // Remove console.* calls  
-    code = code.replace(/console\.(log|debug|error|warn|info)\([^)]*\);?/g, "");
+    processedCode = processedCode.replace(/debug\.(log|error|warn|info)\([^)]*\);?/g, "");
+    // Remove console.* calls
+    processedCode = processedCode.replace(/console\.(log|debug|error|warn|info)\([^)]*\);?/g, "");
+    return processedCode;
   }
   return code;
 }

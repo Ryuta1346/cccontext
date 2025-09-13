@@ -13,7 +13,7 @@ vi.mock("picocolors", () => {
     };
     // Allow chaining
     return new Proxy(fn, {
-      get: (target, prop) => {
+      get: (_target, prop) => {
         if (typeof prop === "string") {
           return colorFunc(prop);
         }
@@ -26,13 +26,13 @@ vi.mock("picocolors", () => {
     default: new Proxy(
       {},
       {
-        get: (target, prop) => {
+        get: (_target, prop) => {
           if (typeof prop === "string") {
             return colorFunc(prop);
           }
           return undefined;
         },
-      }
+      },
     ),
   };
 });

@@ -3,8 +3,8 @@
  * This enables gradual migration without breaking existing functionality
  */
 
-import type { SessionData } from "../types/index.js";
 import type { ContextInfo } from "../monitor/context-tracker.js";
+import type { SessionData } from "../types/index.js";
 
 export interface TUIAdapter {
   createSessionsView(): SessionsViewAdapter;

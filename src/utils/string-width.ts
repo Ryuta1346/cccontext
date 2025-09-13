@@ -4,12 +4,12 @@
  */
 export function getStringWidth(str: string): number {
   if (!str || str.length === 0) return 0;
-  
+
   let width = 0;
-  
+
   for (let i = 0; i < str.length; i++) {
     const code = str.charCodeAt(i);
-    
+
     // Handle ANSI escape sequences (skip them)
     if (code === 0x1b && i + 1 < str.length && str[i + 1] === "[") {
       // Find the end of the escape sequence
@@ -19,7 +19,7 @@ export function getStringWidth(str: string): number {
         continue;
       }
     }
-    
+
     // Basic ASCII (single width)
     if (code < 0x80) {
       width += 1;
@@ -49,14 +49,14 @@ export function getStringWidth(str: string): number {
       (code >= 0xf900 && code <= 0xfaff) || // CJK Compatibility Ideographs
       (code >= 0xfe30 && code <= 0xfe4f) || // CJK Compatibility Forms
       (code >= 0xff00 && code <= 0xff60) || // Fullwidth Forms (Latin)
-      (code >= 0xff61 && code <= 0xffdc)    // Halfwidth and Fullwidth Forms (Asian)
+      (code >= 0xff61 && code <= 0xffdc) // Halfwidth and Fullwidth Forms (Asian)
     ) {
       width += 2;
     }
     // Emoji and other symbols (simplified - treat as double width)
     else if (
       (code >= 0x1f300 && code <= 0x1f9ff) || // Emoji
-      (code >= 0x2600 && code <= 0x27bf)     // Miscellaneous Symbols
+      (code >= 0x2600 && code <= 0x27bf) // Miscellaneous Symbols
     ) {
       width += 2;
       // Skip combining characters
@@ -72,7 +72,7 @@ export function getStringWidth(str: string): number {
       width += 1;
     }
   }
-  
+
   return width;
 }
 

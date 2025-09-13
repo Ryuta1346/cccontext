@@ -44,9 +44,9 @@ interface ContextInfo {
   };
 }
 
-import pc from "picocolors";
 import fs from "fs";
 import path from "path";
+import pc from "picocolors";
 import stringWidth from "string-width";
 
 interface CLIOptions {
@@ -147,7 +147,7 @@ class CCContextCLI {
       }
 
       console.log(pc.green(`✓ Found session: ${sessionToMonitor.sessionId}`));
-      
+
       // Initialize live view after session resolution
       this.view = new LiveView();
       this.view.init();
@@ -250,7 +250,7 @@ class CCContextCLI {
       }
 
       // Limit number of displayed items
-      const limit = parseInt(String(options.limit || 10));
+      const limit = parseInt(String(options.limit || 10), 10);
       const displaySessions = sessions.slice(0, limit);
 
       // SessionsLiveViewで表示
@@ -382,7 +382,7 @@ class CCContextCLI {
       throw new Error(`Invalid session number: ${identifier}. Please specify a number from the list.`);
     }
 
-    const position = parseInt(identifier);
+    const position = parseInt(identifier, 10);
     const files = await this.watcher.getAllJsonlFiles();
 
     // Sort files by last update time (newest first)
@@ -397,8 +397,8 @@ class CCContextCLI {
       sortedFiles.slice(0, Math.min(10, sortedFiles.length)).forEach((file, idx) => {
         const sessionId = path.basename(file, ".jsonl");
         const stats = fs.statSync(file);
-        const timeStr = stats.mtime.toISOString().slice(0, 19).replace('T', ' ');
-        const selected = (idx + 1) === position ? pc.green(" <-- SELECTED") : "";
+        const timeStr = stats.mtime.toISOString().slice(0, 19).replace("T", " ");
+        const selected = idx + 1 === position ? pc.green(" <-- SELECTED") : "";
         console.error(pc.gray(`    ${idx + 1}. ${sessionId} (${timeStr})${selected}`));
       });
       console.error("");
@@ -407,11 +407,11 @@ class CCContextCLI {
     if (position > 0 && position <= sortedFiles.length) {
       const selectedFile = sortedFiles[position - 1];
       const selectedSessionId = path.basename(selectedFile ?? "", ".jsonl");
-      
+
       if (process.env.DEBUG) {
         console.log(pc.gray(`[DEBUG] Selected session: ${selectedSessionId}`));
       }
-      
+
       return selectedSessionId;
     } else {
       throw new Error(`Invalid session number: ${position}. Valid range is 1-${sortedFiles.length}`);
@@ -422,7 +422,7 @@ class CCContextCLI {
     try {
       const files = await this.watcher.getAllJsonlFiles();
       const sessions: SessionForList[] = [];
-      const limit = parseInt(String(options.limit || 20));
+      const limit = parseInt(String(options.limit || 20), 10);
 
       // Collect information for each session file
       for (const file of files) {
@@ -568,7 +568,7 @@ class CCContextCLI {
     try {
       // Get all session files
       const files = await this.watcher.getAllJsonlFiles();
-      const limit = parseInt(String(options.limit));
+      const limit = parseInt(String(options.limit), 10);
 
       // Process from newest files first
       const sortedFiles = await this.getSortedFilesByMtime(files);
@@ -676,7 +676,7 @@ class CCContextCLI {
           console.error(`[CLI] Sessions loaded event received: ${sessions.length} sessions`);
         }
 
-        const limit = parseInt(String(options.limit || 20));
+        const limit = parseInt(String(options.limit || 20), 10);
         const displaySessions = sessions.slice(0, limit);
 
         if (debugMode) {
@@ -694,7 +694,7 @@ class CCContextCLI {
 
       // Session update event (real-time)
       this.sessionsManager.on("sessions-updated", (sessions: SessionWithContext[]) => {
-        const limit = parseInt(String(options.limit || 20));
+        const limit = parseInt(String(options.limit || 20), 10);
         const displaySessions = sessions.slice(0, limit);
         if (this.sessionsView) {
           this.sessionsView.updateSessions(displaySessions);
@@ -936,24 +936,22 @@ program.on("command:*", (operands: string[]) => {
 });
 
 // Default command (when executed without arguments)
-program
-  .option("--list", "List all sessions for selection")
-  .action((options: CLIOptions) => {
-    // Check command line arguments
-    const args = process.argv.slice(2);
-    // Error if unknown command is specified
-    if (args.length > 0 && !args[0]?.startsWith("-") && !["monitor", "sessions"].includes(args[0] ?? "")) {
-      console.error(`error: unknown command '${args[0] ?? ""}'`);
-      process.exit(1);
-    }
+program.option("--list", "List all sessions for selection").action((options: CLIOptions) => {
+  // Check command line arguments
+  const args = process.argv.slice(2);
+  // Error if unknown command is specified
+  if (args.length > 0 && !args[0]?.startsWith("-") && !["monitor", "sessions"].includes(args[0] ?? "")) {
+    console.error(`error: unknown command '${args[0] ?? ""}'`);
+    process.exit(1);
+  }
 
-    if (options.list) {
-      cli.listSessionsForSelection({ limit: options.listLimit || 20 });
-    } else {
-      // Default to monitor without session selection
-      cli.monitorLive({ live: true });
-    }
-  });
+  if (options.list) {
+    cli.listSessionsForSelection({ limit: options.listLimit || 20 });
+  } else {
+    // Default to monitor without session selection
+    cli.monitorLive({ live: true });
+  }
+});
 
 try {
   program.parse(process.argv);
