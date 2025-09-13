@@ -23,6 +23,7 @@
     "build": "tsc",
     "build:prod": "tsc --project tsconfig.prod.json",
     "build:minify": "npm run build:prod && node scripts/build.mjs",
+    "build:bundled": "node scripts/build-bundled.mjs",
     "build:watch": "tsc --watch",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
@@ -63,7 +64,8 @@
     "url": "https://github.com/ryuta1346/cccontext/issues"
   },
   "files": [
-    "dist/",
+    "dist/cli.js",
+    "dist/cli.d.ts",
     "README.md",
     "LICENSE"
   ],

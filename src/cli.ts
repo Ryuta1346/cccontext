@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { program } from "commander";
 import { LiveView } from "./display/live-view.js";
 import { SessionsLiveView } from "./display/sessions-live-view.js";
