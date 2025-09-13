@@ -129,9 +129,11 @@ class LightweightBox implements TUIBox {
     
     // Apply styles
     if (this.style.fg) {
-      const colorFn = (chalk as any)[this.style.fg];
-      if (colorFn) {
-        output = colorFn(output);
+      const colorKey = this.style.fg;
+      // Using dynamic color access with proper type checking
+      const chalkColors = chalk as typeof chalk & Record<string, (text: string) => string>;
+      if (colorKey && colorKey in chalkColors && typeof chalkColors[colorKey] === 'function') {
+        output = chalkColors[colorKey](output);
       }
     }
     
@@ -148,7 +150,7 @@ class LightweightBox implements TUIBox {
       process.stdout.write(`\x1b[${top};${left}H`);
     }
     
-    process.stdout.write(output + "\n");
+    process.stdout.write(`${output}\n`);
   }
   
   private parsePosition(pos: number | string | undefined): number | null {

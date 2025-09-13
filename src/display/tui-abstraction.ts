@@ -1,5 +1,8 @@
 // SessionData type is used in implementations but not in this abstract interface
 
+// Generic data type for update method
+export type ViewData = unknown;
+
 export interface TUIScreen {
   init(): void;
   destroy(): void;
@@ -71,7 +74,7 @@ export abstract class BaseLiveView {
   }
   
   abstract init(): void;
-  abstract update(data: any): void;
+  abstract update(data: ViewData): void;
   abstract destroy(): void;
   
   protected setupKeyboardHandlers(): void {

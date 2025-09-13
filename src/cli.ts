@@ -115,14 +115,10 @@ class CCContextCLI {
   async monitorLive(options: CLIOptions): Promise<void> {
     console.log(chalk.cyan("🔍 Starting Claude Code Context Monitor..."));
 
-    // Initialize live view
-    this.view = new LiveView();
-    this.view.init();
-
     try {
       let sessionToMonitor: ActiveSession | null;
 
-      // Session selection processing
+      // Session selection processing (before UI initialization)
       if (options.session) {
         // Resolve specified session ID or sequence number
         const resolvedSessionId = await this.resolveSessionIdentifier(options.session);
@@ -132,9 +128,8 @@ class CCContextCLI {
         const sessionFile = files.find((f) => path.basename(f, ".jsonl") === resolvedSessionId);
 
         if (!sessionFile) {
-          this.view.showError(`Session not found: ${options.session}`);
-          setTimeout(() => process.exit(1), 3000);
-          return;
+          console.error(chalk.red(`Session not found: ${options.session}`));
+          process.exit(1);
         }
 
         sessionToMonitor = {
@@ -146,13 +141,16 @@ class CCContextCLI {
         sessionToMonitor = await this.watcher.findActiveSession();
 
         if (!sessionToMonitor) {
-          this.view.showError("No active Claude Code sessions found.");
-          setTimeout(() => process.exit(1), 3000);
-          return;
+          console.error(chalk.red("No active Claude Code sessions found."));
+          process.exit(1);
         }
       }
 
       console.log(chalk.green(`✓ Found session: ${sessionToMonitor.sessionId}`));
+      
+      // Initialize live view after session resolution
+      this.view = new LiveView();
+      this.view.init();
       this.view.showMessage(`Monitoring session: ${sessionToMonitor.sessionId}`);
 
       // Setup event handlers
@@ -242,6 +240,14 @@ class CCContextCLI {
         const bTime = b.lastModified instanceof Date ? b.lastModified.getTime() : b.lastModified;
         return bTime - aTime;
       });
+
+      // Debug logging
+      if (process.env.DEBUG) {
+        console.log(chalk.gray(`[DEBUG] showSessions - Sessions after sorting (newest first):`));
+        sessions.slice(0, 5).forEach((session, idx) => {
+          console.log(chalk.gray(`[DEBUG]   ${idx + 1}. ${session.sessionId}`));
+        });
+      }
 
       // Limit number of displayed items
       const limit = parseInt(String(options.limit || 10));
@@ -378,12 +384,34 @@ class CCContextCLI {
     const position = parseInt(identifier);
     const files = await this.watcher.getAllJsonlFiles();
 
-    // Sort files by last update time
+    // Sort files by last update time (newest first)
     const sortedFiles = await this.getSortedFilesByMtime(files);
+
+    // Debug logging (only when DEBUG environment variable is set)
+    if (process.env.DEBUG) {
+      console.error(chalk.yellow(`\n[Session Selection Debug]`));
+      console.error(chalk.gray(`  Total files found: ${sortedFiles.length}`));
+      console.error(chalk.gray(`  Requested position: ${position}`));
+      console.error(chalk.gray(`  Available sessions (newest first):`));
+      sortedFiles.slice(0, Math.min(10, sortedFiles.length)).forEach((file, idx) => {
+        const sessionId = path.basename(file, ".jsonl");
+        const stats = fs.statSync(file);
+        const timeStr = stats.mtime.toISOString().slice(0, 19).replace('T', ' ');
+        const selected = (idx + 1) === position ? chalk.green(" <-- SELECTED") : "";
+        console.error(chalk.gray(`    ${idx + 1}. ${sessionId} (${timeStr})${selected}`));
+      });
+      console.error("");
+    }
 
     if (position > 0 && position <= sortedFiles.length) {
       const selectedFile = sortedFiles[position - 1];
-      return path.basename(selectedFile ?? "", ".jsonl");
+      const selectedSessionId = path.basename(selectedFile ?? "", ".jsonl");
+      
+      if (process.env.DEBUG) {
+        console.log(chalk.gray(`[DEBUG] Selected session: ${selectedSessionId}`));
+      }
+      
+      return selectedSessionId;
     } else {
       throw new Error(`Invalid session number: ${position}. Valid range is 1-${sortedFiles.length}`);
     }
@@ -430,6 +458,14 @@ class CCContextCLI {
         const bTime = b.lastModified instanceof Date ? b.lastModified.getTime() : b.lastModified;
         return bTime - aTime;
       });
+
+      // Debug logging
+      if (process.env.DEBUG) {
+        console.log(chalk.gray(`[DEBUG] Sessions after sorting (newest first):`));
+        sessions.slice(0, 5).forEach((session, idx) => {
+          console.log(chalk.gray(`[DEBUG]   ${idx + 1}. ${session.sessionId}`));
+        });
+      }
 
       if (sessions.length === 0) {
         console.log(chalk.yellow("No sessions found."));
@@ -853,7 +889,7 @@ const cli = new CCContextCLI();
 program
   .name("cccontext")
   .description("Real-time context usage monitor for Claude Code")
-  .version("1.0.0")
+  .version("1.1.1")
   .exitOverride()
   .configureOutput({
     writeOut: (str: string) => {
@@ -901,7 +937,6 @@ program.on("command:*", (operands: string[]) => {
 // Default command (when executed without arguments)
 program
   .option("--list", "List all sessions for selection")
-  .option("--session <number>", "Monitor specific session by number from list")
   .action((options: CLIOptions) => {
     // Check command line arguments
     const args = process.argv.slice(2);
@@ -914,7 +949,8 @@ program
     if (options.list) {
       cli.listSessionsForSelection({ limit: options.listLimit || 20 });
     } else {
-      cli.monitorLive({ live: true, session: options.session });
+      // Default to monitor without session selection
+      cli.monitorLive({ live: true });
     }
   });
 

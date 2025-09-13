@@ -6,6 +6,7 @@ import type { TUIAdapter, SessionsViewAdapter, MonitorViewAdapter } from "./tui-
 import { SessionsLiveView } from "./sessions-live-view.js";
 import { LiveView } from "./live-view.js";
 import type { SessionData } from "../types/index.js";
+import type { ContextInfo } from "../monitor/context-tracker.js";
 
 class BlessedSessionsViewAdapter implements SessionsViewAdapter {
   private view: SessionsLiveView;
@@ -19,10 +20,8 @@ class BlessedSessionsViewAdapter implements SessionsViewAdapter {
   }
   
   update(sessions: SessionData[]): void {
-    // The SessionsLiveView doesn't have a direct update method
-    // It uses updateSessions internally
-    (this.view as any).sessions = sessions;
-    (this.view as any).updateTable();
+    // Use the public updateSessions method
+    this.view.updateSessions(sessions);
   }
   
   destroy(): void {
@@ -41,11 +40,9 @@ class BlessedMonitorViewAdapter implements MonitorViewAdapter {
     this.view.init();
   }
   
-  update(data: any): void {
-    // The LiveView doesn't have a direct update method
-    // It uses updateUI internally
-    (this.view as any).context = data;
-    (this.view as any).updateUI();
+  update(data: ContextInfo): void {
+    // Use the public updateContextInfo method
+    this.view.updateContextInfo(data);
   }
   
   destroy(): void {

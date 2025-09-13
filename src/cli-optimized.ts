@@ -3,6 +3,7 @@ import { program } from "commander";
 import chalk from "chalk";
 import fs from "fs";
 import path from "path";
+import type { SessionData } from "./types/index.js";
 
 interface CLIOptions {
   live?: boolean;
@@ -79,11 +80,10 @@ program
       }
       
       // Setup event handlers
-      watcher.on("session-data", (sessionData: any) => {
+      watcher.on("session-data", (sessionData: SessionData) => {
         const contextInfo = tracker.updateSession(sessionData);
         if (contextInfo) {
-          (view as any).context = contextInfo;
-          (view as any).updateUI();
+          view.updateContextInfo(contextInfo);
         }
       });
       
@@ -128,13 +128,13 @@ program
       
       // Display sessions list
       console.log(chalk.cyan.bold("\n📊 Recent Claude Code Sessions\n"));
-      sessions.forEach((session: any, index: number) => {
+      sessions.forEach((session, index) => {
         console.log(chalk.yellow(`[${index + 1}] ${session.sessionId}`));
         console.log(chalk.gray(`    Model: ${session.model}`));
         console.log(chalk.gray(`    Tokens: ${session.totalTokens.toLocaleString()}`));
         if (session.latestPrompt) {
           const truncated = session.latestPrompt.length > 50 
-            ? session.latestPrompt.substring(0, 50) + "..."
+            ? `${session.latestPrompt.substring(0, 50)}...`
             : session.latestPrompt;
           console.log(chalk.gray(`    Latest: ${truncated}`));
         }
@@ -155,8 +155,8 @@ program
       const updateView = async () => {
         const allSessions = await manager.getAllSessions();
         const sessions = allSessions.slice(0, Number(options.limit) || 10);
-        (view as any).sessions = sessions;
-        (view as any).updateTable();
+        // Cast SessionInfo[] to SessionData[] - they're compatible except for startTime type
+        view.updateSessions(sessions as unknown as SessionData[]);
       };
       
       // Setup periodic updates
@@ -204,11 +204,10 @@ program
         }
         
         // Setup event handlers
-        watcher.on("session-data", (sessionData: any) => {
+        watcher.on("session-data", (sessionData: SessionData) => {
           const contextInfo = tracker.updateSession(sessionData);
           if (contextInfo) {
-            (view as any).context = contextInfo;
-            (view as any).updateUI();
+            view.updateContextInfo(contextInfo);
           }
         });
         

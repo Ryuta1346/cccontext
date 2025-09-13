@@ -21,8 +21,8 @@ export class FileWatcher {
     const { recursive = true, debounceMs = 100 } = options;
     
     // Create debounced callback
-    const debouncedCallback = debounce((eventType: string, filename: string) => {
-      callback(eventType, filename);
+    const debouncedCallback = debounce((...args: unknown[]) => {
+      callback(args[0] as string, args[1] as string);
     }, debounceMs);
     
     this.debouncedCallbacks.set(callback, debouncedCallback);

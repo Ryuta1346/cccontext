@@ -5,6 +5,7 @@
 
 import type { TUIAdapter, SessionsViewAdapter, MonitorViewAdapter } from "./tui-adapter.js";
 import type { SessionData } from "../types/index.js";
+import type { ContextInfo } from "../monitor/context-tracker.js";
 
 class LightweightSessionsViewAdapter implements SessionsViewAdapter {
   init(): void {
@@ -25,7 +26,7 @@ class LightweightMonitorViewAdapter implements MonitorViewAdapter {
     console.log("Lightweight monitor view initialized");
   }
   
-  update(data: any): void {
+  update(data: ContextInfo): void {
     console.log("Updating monitor view", data);
   }
   

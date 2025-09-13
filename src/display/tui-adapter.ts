@@ -4,6 +4,7 @@
  */
 
 import type { SessionData } from "../types/index.js";
+import type { ContextInfo } from "../monitor/context-tracker.js";
 
 export interface TUIAdapter {
   createSessionsView(): SessionsViewAdapter;
@@ -18,7 +19,7 @@ export interface SessionsViewAdapter {
 
 export interface MonitorViewAdapter {
   init(): void;
-  update(data: any): void;
+  update(data: ContextInfo): void;
   destroy(): void;
 }
 
