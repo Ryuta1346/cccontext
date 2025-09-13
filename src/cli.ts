@@ -959,10 +959,12 @@ try {
   program.parse(process.argv);
 } catch (error: unknown) {
   // CommanderのexitOverrideでhelp/version時に例外が発生
-  const err = error as { code?: string };
+  const err = error as { code?: string; message?: string };
   if (err.code === "commander.helpDisplayed" || err.code === "commander.version") {
     process.exit(0);
   } else if (err.code?.startsWith("commander.")) {
+    // Commander already outputs error through configureOutput.writeErr
+    // Just exit with error code
     process.exit(1);
   } else {
     throw error;

@@ -32,8 +32,8 @@ async function build() {
     
     // Remove debug code and comments
     legalComments: 'none',
-    drop: isWatch ? [] : ['console', 'debugger'],
-    pure: isWatch ? [] : ['console.log', 'console.warn', 'console.error', 'console.debug', 'console.trace', 'console.info'],
+    drop: isWatch ? [] : ['debugger'],
+    pure: isWatch ? [] : ['console.debug', 'console.trace'],
     
     // No source maps for production
     sourcemap: isWatch ? 'inline' : false,
