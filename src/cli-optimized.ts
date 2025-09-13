@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { program } from "commander";
-import pc from "picocolors";
 import fs from "fs";
 import path from "path";
+import pc from "picocolors";
 import type { SessionData } from "./types/index.js";
 
 interface CLIOptions {
@@ -17,32 +17,23 @@ interface CLIOptions {
 
 // Lazy load heavy modules only when needed
 async function loadMonitorCommand() {
-  const [
-    { LiveView },
-    { ContextTracker },
-    { SessionWatcher },
-    { UsageCalculator }
-  ] = await Promise.all([
+  const [{ LiveView }, { ContextTracker }, { SessionWatcher }, { UsageCalculator }] = await Promise.all([
     import("./display/live-view.js"),
     import("./monitor/context-tracker.js"),
     import("./monitor/session-watcher.js"),
-    import("./monitor/usage-calculator.js")
+    import("./monitor/usage-calculator.js"),
   ]);
-  
+
   return { LiveView, ContextTracker, SessionWatcher, UsageCalculator };
 }
 
 async function loadSessionsCommand() {
-  const [
-    { SessionsLiveView },
-    { EnhancedSessionsManager },
-    { SessionWatcher }
-  ] = await Promise.all([
+  const [{ SessionsLiveView }, { EnhancedSessionsManager }, { SessionWatcher }] = await Promise.all([
     import("./display/sessions-live-view.js"),
     import("./monitor/enhanced-sessions-manager.js"),
-    import("./monitor/session-watcher.js")
+    import("./monitor/session-watcher.js"),
   ]);
-  
+
   return { SessionsLiveView, EnhancedSessionsManager, SessionWatcher };
 }
 
@@ -50,10 +41,7 @@ async function loadSessionsCommand() {
 const packagePath = path.join(import.meta.dirname || process.cwd(), "../package.json");
 const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf-8"));
 
-program
-  .name("cccontext")
-  .description("Real-time context usage monitor for Claude Code")
-  .version(packageJson.version);
+program.name("cccontext").description("Real-time context usage monitor for Claude Code").version(packageJson.version);
 
 // Monitor command with lazy loading
 program
@@ -63,22 +51,22 @@ program
   .option("-s, --session <number>", "Monitor specific session by number from list")
   .action(async (options: CLIOptions) => {
     const { LiveView, ContextTracker, SessionWatcher } = await loadMonitorCommand();
-    
+
     // Create instances and run monitor
     const tracker = new ContextTracker();
     const watcher = new SessionWatcher();
-    
+
     if (options.live) {
       const view = new LiveView();
       view.init();
-      
+
       // Find active session to monitor
       const activeSession = await watcher.findActiveSession();
       if (!activeSession) {
         console.log(pc.red("No active Claude Code sessions found."));
         process.exit(1);
       }
-      
+
       // Setup event handlers
       watcher.on("session-data", (sessionData: SessionData) => {
         const contextInfo = tracker.updateSession(sessionData);
@@ -86,10 +74,10 @@ program
           view.updateContextInfo(contextInfo);
         }
       });
-      
+
       // Start monitoring the session
       await watcher.watchSession(activeSession.sessionId, activeSession.filePath);
-      
+
       process.on("SIGINT", () => {
         view.destroy();
         watcher.stopWatching(activeSession.sessionId);
@@ -118,14 +106,14 @@ program
       console.log(pc.green("✓ Session cache cleared"));
       process.exit(0);
     }
-    
+
     if (options.list) {
       const { EnhancedSessionsManager } = await loadSessionsCommand();
       const manager = new EnhancedSessionsManager();
       await manager.initialize();
       const allSessions = await manager.getAllSessions();
       const sessions = allSessions.slice(0, Number(options.limit) || 10);
-      
+
       // Display sessions list
       console.log(pc.cyan(pc.bold("\n📊 Recent Claude Code Sessions\n")));
       sessions.forEach((session, index) => {
@@ -133,36 +121,35 @@ program
         console.log(pc.gray(`    Model: ${session.model}`));
         console.log(pc.gray(`    Tokens: ${session.totalTokens.toLocaleString()}`));
         if (session.latestPrompt) {
-          const truncated = session.latestPrompt.length > 50 
-            ? `${session.latestPrompt.substring(0, 50)}...`
-            : session.latestPrompt;
+          const truncated =
+            session.latestPrompt.length > 50 ? `${session.latestPrompt.substring(0, 50)}...` : session.latestPrompt;
           console.log(pc.gray(`    Latest: ${truncated}`));
         }
         console.log();
       });
-      
+
       process.exit(0);
     }
-    
+
     if (options.live) {
       const { SessionsLiveView, EnhancedSessionsManager } = await loadSessionsCommand();
       const view = new SessionsLiveView();
       const manager = new EnhancedSessionsManager();
-      
+
       view.init();
       await manager.initialize();
-      
+
       const updateView = async () => {
         const allSessions = await manager.getAllSessions();
         const sessions = allSessions.slice(0, Number(options.limit) || 10);
         // Cast SessionInfo[] to SessionData[] - they're compatible except for startTime type
         view.updateSessions(sessions as unknown as SessionData[]);
       };
-      
+
       // Setup periodic updates
       const intervalId = setInterval(updateView, 1000);
       updateView(); // Initial load
-      
+
       process.on("SIGINT", () => {
         clearInterval(intervalId);
         view.destroy();
@@ -183,26 +170,26 @@ program
   .action(async (options: CLIOptions) => {
     // Check command line arguments
     const args = process.argv.slice(2);
-    const hasCommand = args.some(arg => !arg.startsWith("-"));
-    
+    const hasCommand = args.some((arg) => !arg.startsWith("-"));
+
     if (!hasCommand) {
       // Default to monitor command
       const { LiveView, ContextTracker, SessionWatcher } = await loadMonitorCommand();
-      
+
       if (options.live) {
         const tracker = new ContextTracker();
         const watcher = new SessionWatcher();
         const view = new LiveView();
-        
+
         view.init();
-        
+
         // Find active session to monitor
         const activeSession = await watcher.findActiveSession();
         if (!activeSession) {
           console.log(pc.red("No active Claude Code sessions found."));
           process.exit(1);
         }
-        
+
         // Setup event handlers
         watcher.on("session-data", (sessionData: SessionData) => {
           const contextInfo = tracker.updateSession(sessionData);
@@ -210,10 +197,10 @@ program
             view.updateContextInfo(contextInfo);
           }
         });
-        
+
         // Start monitoring the session
         await watcher.watchSession(activeSession.sessionId, activeSession.filePath);
-        
+
         process.on("SIGINT", () => {
           view.destroy();
           watcher.stopWatching(activeSession.sessionId);

@@ -11,13 +11,7 @@
   },
   {
     "name": "NPM Package Size",
-    "path": [
-      "dist/**/*.js",
-      "dist/**/*.d.ts",
-      "package.json",
-      "README.md",
-      "LICENSE"
-    ],
+    "path": ["dist/**/*.js", "dist/**/*.d.ts", "package.json", "README.md", "LICENSE"],
     "limit": "200 KB"
   }
 ]

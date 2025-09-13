@@ -68,20 +68,21 @@ export interface TableOptions {
 export abstract class BaseLiveView {
   protected screen: TUIScreen | null = null;
   protected provider: TUIProvider;
-  
+
   constructor(provider: TUIProvider) {
     this.provider = provider;
   }
-  
+
   abstract init(): void;
   abstract update(data: ViewData): void;
   abstract destroy(): void;
-  
+
   protected setupKeyboardHandlers(): void {
     if (!this.screen) return;
-    
+
     this.screen.onKey((key: string) => {
-      if (key === 'q' || key === '\u0003') { // q or Ctrl+C
+      if (key === "q" || key === "\u0003") {
+        // q or Ctrl+C
         this.destroy();
         process.exit(0);
       }
