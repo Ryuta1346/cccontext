@@ -33,7 +33,7 @@ interface LatestTurn {
   percentage: number;
 }
 
-interface ContextInfo {
+export interface ContextInfo {
   sessionId: string;
   model: string;
   modelName: string;

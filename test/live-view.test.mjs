@@ -1,6 +1,42 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LiveView } from "../src/display/live-view.ts";
 
+// Mock picocolors to return markup-style strings for testing
+vi.mock("picocolors", () => {
+  const colorFunc = (color) => {
+    const fn = (text) => {
+      // Handle nested functions (like pc.red(pc.bold(text)))
+      if (typeof text === "function") {
+        return text;
+      }
+      return `[${color}]${text}[/${color}]`;
+    };
+    // Allow chaining
+    return new Proxy(fn, {
+      get: (target, prop) => {
+        if (typeof prop === "string") {
+          return colorFunc(prop);
+        }
+        return undefined;
+      },
+    });
+  };
+
+  return {
+    default: new Proxy(
+      {},
+      {
+        get: (target, prop) => {
+          if (typeof prop === "string") {
+            return colorFunc(prop);
+          }
+          return undefined;
+        },
+      }
+    ),
+  };
+});
+
 // Mock blessed module
 vi.mock("blessed", () => ({
   default: {
@@ -191,8 +227,8 @@ describe("LiveView", () => {
 
       expect(formatted).toContain("abcdef1234567890");
       expect(formatted).toContain("[yellow]");
-      expect(formatted).toContain("[cyan]Claude 3.5 Sonnet");
-      expect(formatted).toContain("[gray]1h 30m");
+      expect(formatted).toContain("[cyan]Claude 3.5 Sonnet[/cyan]");
+      expect(formatted).toContain("[gray]1h 30m[/gray]");
     });
 
     it("should create progress bar based on percentage", () => {

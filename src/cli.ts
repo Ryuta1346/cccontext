@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { program } from "commander";
 import { LiveView } from "./display/live-view.js";
 import { SessionsLiveView } from "./display/sessions-live-view.js";
@@ -46,7 +44,7 @@ interface ContextInfo {
   };
 }
 
-import chalk from "chalk";
+import pc from "picocolors";
 import fs from "fs";
 import path from "path";
 import stringWidth from "string-width";
@@ -115,16 +113,12 @@ class CCContextCLI {
   }
 
   async monitorLive(options: CLIOptions): Promise<void> {
-    console.log(chalk.cyan("🔍 Starting Claude Code Context Monitor..."));
-
-    // Initialize live view
-    this.view = new LiveView();
-    this.view.init();
+    console.log(pc.cyan("🔍 Starting Claude Code Context Monitor..."));
 
     try {
       let sessionToMonitor: ActiveSession | null;
 
-      // Session selection processing
+      // Session selection processing (before UI initialization)
       if (options.session) {
         // Resolve specified session ID or sequence number
         const resolvedSessionId = await this.resolveSessionIdentifier(options.session);
@@ -134,9 +128,8 @@ class CCContextCLI {
         const sessionFile = files.find((f) => path.basename(f, ".jsonl") === resolvedSessionId);
 
         if (!sessionFile) {
-          this.view.showError(`Session not found: ${options.session}`);
-          setTimeout(() => process.exit(1), 3000);
-          return;
+          console.error(pc.red(`Session not found: ${options.session}`));
+          process.exit(1);
         }
 
         sessionToMonitor = {
@@ -148,13 +141,16 @@ class CCContextCLI {
         sessionToMonitor = await this.watcher.findActiveSession();
 
         if (!sessionToMonitor) {
-          this.view.showError("No active Claude Code sessions found.");
-          setTimeout(() => process.exit(1), 3000);
-          return;
+          console.error(pc.red("No active Claude Code sessions found."));
+          process.exit(1);
         }
       }
 
-      console.log(chalk.green(`✓ Found session: ${sessionToMonitor.sessionId}`));
+      console.log(pc.green(`✓ Found session: ${sessionToMonitor.sessionId}`));
+      
+      // Initialize live view after session resolution
+      this.view = new LiveView();
+      this.view.init();
       this.view.showMessage(`Monitoring session: ${sessionToMonitor.sessionId}`);
 
       // Setup event handlers
@@ -185,14 +181,14 @@ class CCContextCLI {
       process.on("SIGINT", () => this.cleanup());
       process.on("SIGTERM", () => this.cleanup());
     } catch (error) {
-      console.error(chalk.red(`Error: ${(error as Error).message}`));
+      console.error(pc.red(`Error: ${(error as Error).message}`));
       this.cleanup();
       process.exit(1);
     }
   }
 
   async showSessions(options: CLIOptions): Promise<void> {
-    console.log(chalk.cyan("🔍 Loading Claude Code Sessions..."));
+    console.log(pc.cyan("🔍 Loading Claude Code Sessions..."));
 
     // Initialize live view
     this.sessionsView = new SessionsLiveView();
@@ -245,6 +241,14 @@ class CCContextCLI {
         return bTime - aTime;
       });
 
+      // Debug logging
+      if (process.env.DEBUG) {
+        console.log(pc.gray(`[DEBUG] showSessions - Sessions after sorting (newest first):`));
+        sessions.slice(0, 5).forEach((session, idx) => {
+          console.log(pc.gray(`[DEBUG]   ${idx + 1}. ${session.sessionId}`));
+        });
+      }
+
       // Limit number of displayed items
       const limit = parseInt(String(options.limit || 10));
       const displaySessions = sessions.slice(0, limit);
@@ -271,7 +275,7 @@ class CCContextCLI {
         // Promise never resolves (wait until user presses q or Ctrl+C)
       });
     } catch (error) {
-      console.error(chalk.red(`Error: ${(error as Error).message}`));
+      console.error(pc.red(`Error: ${(error as Error).message}`));
       if (this.sessionsView) {
         this.sessionsView.destroy();
       }
@@ -286,7 +290,8 @@ class CCContextCLI {
     const empty = Math.max(0, width - filled);
 
     const color: "red" | "yellow" | "green" = safePercentage >= 80 ? "red" : safePercentage >= 60 ? "yellow" : "green";
-    return chalk[color]("█".repeat(filled)) + chalk.gray("░".repeat(empty));
+    const colorFn = color === "red" ? pc.red : color === "yellow" ? pc.yellow : pc.green;
+    return colorFn("█".repeat(filled)) + pc.gray("░".repeat(empty));
   }
 
   private formatAge(date: Date): string {
@@ -336,18 +341,18 @@ class CCContextCLI {
   //
   //   const bar = this.createMiniProgressBar(safePercentage);
   //   const percentStr = safePercentage.toFixed(1) + '%';
-  //   return `[${bar}] ${chalk.cyan(percentStr.padStart(5))}`;
+  //   return `[${bar}] ${pc.cyan(percentStr.padStart(5))}`;
   // }
 
   // private formatAutoCompact(autoCompact?: { enabled?: boolean; remainingPercentage: number; thresholdPercentage?: number; warningLevel?: string }): string {
   //   if (!autoCompact?.enabled) {
-  //     return chalk.gray('N/A');
+  //     return pc.gray('N/A');
   //   }
   //
   //   const { remainingPercentage, thresholdPercentage, warningLevel } = autoCompact;
   //
   //   if (remainingPercentage <= 0) {
-  //     return chalk.red('ACTIVE!');
+  //     return pc.red('ACTIVE!');
   //   }
   //
   //   // 残り容量を % で表示
@@ -356,13 +361,13 @@ class CCContextCLI {
   //   // 警告レベルに応じた表示
   //   switch (warningLevel) {
   //     case 'critical':
-  //       return chalk.red(`!${percentStr}`);
+  //       return pc.red(`!${percentStr}`);
   //     case 'warning':
-  //       return chalk.yellow(`⚠ ${percentStr}`);
+  //       return pc.yellow(`⚠ ${percentStr}`);
   //     case 'notice':
-  //       return chalk.cyan(percentStr);
+  //       return pc.cyan(percentStr);
   //     default:
-  //       return chalk.gray(percentStr);
+  //       return pc.gray(percentStr);
   //   }
   // }
 
@@ -380,12 +385,34 @@ class CCContextCLI {
     const position = parseInt(identifier);
     const files = await this.watcher.getAllJsonlFiles();
 
-    // Sort files by last update time
+    // Sort files by last update time (newest first)
     const sortedFiles = await this.getSortedFilesByMtime(files);
+
+    // Debug logging (only when DEBUG environment variable is set)
+    if (process.env.DEBUG) {
+      console.error(pc.yellow(`\n[Session Selection Debug]`));
+      console.error(pc.gray(`  Total files found: ${sortedFiles.length}`));
+      console.error(pc.gray(`  Requested position: ${position}`));
+      console.error(pc.gray(`  Available sessions (newest first):`));
+      sortedFiles.slice(0, Math.min(10, sortedFiles.length)).forEach((file, idx) => {
+        const sessionId = path.basename(file, ".jsonl");
+        const stats = fs.statSync(file);
+        const timeStr = stats.mtime.toISOString().slice(0, 19).replace('T', ' ');
+        const selected = (idx + 1) === position ? pc.green(" <-- SELECTED") : "";
+        console.error(pc.gray(`    ${idx + 1}. ${sessionId} (${timeStr})${selected}`));
+      });
+      console.error("");
+    }
 
     if (position > 0 && position <= sortedFiles.length) {
       const selectedFile = sortedFiles[position - 1];
-      return path.basename(selectedFile ?? "", ".jsonl");
+      const selectedSessionId = path.basename(selectedFile ?? "", ".jsonl");
+      
+      if (process.env.DEBUG) {
+        console.log(pc.gray(`[DEBUG] Selected session: ${selectedSessionId}`));
+      }
+      
+      return selectedSessionId;
     } else {
       throw new Error(`Invalid session number: ${position}. Valid range is 1-${sortedFiles.length}`);
     }
@@ -433,31 +460,39 @@ class CCContextCLI {
         return bTime - aTime;
       });
 
+      // Debug logging
+      if (process.env.DEBUG) {
+        console.log(pc.gray(`[DEBUG] Sessions after sorting (newest first):`));
+        sessions.slice(0, 5).forEach((session, idx) => {
+          console.log(pc.gray(`[DEBUG]   ${idx + 1}. ${session.sessionId}`));
+        });
+      }
+
       if (sessions.length === 0) {
-        console.log(chalk.yellow("No sessions found."));
+        console.log(pc.yellow("No sessions found."));
         process.exit(0);
       }
 
-      console.log(chalk.cyan("\nActive Sessions"));
-      console.log(chalk.gray("━".repeat(100)));
+      console.log(pc.cyan("\nActive Sessions"));
+      console.log(pc.gray("━".repeat(100)));
 
       // Header row
       console.log(
-        chalk.gray("No.") +
+        pc.gray("No.") +
           "  " +
-          chalk.gray("Session ID") +
+          pc.gray("Session ID") +
           "  " +
-          chalk.gray("Usage") +
+          pc.gray("Usage") +
           "           " +
-          chalk.gray("Model") +
+          pc.gray("Model") +
           "            " +
-          chalk.gray("Turns") +
+          pc.gray("Turns") +
           "   " +
-          chalk.gray("Age") +
+          pc.gray("Age") +
           "      " +
-          chalk.gray("Latest Prompt"),
+          pc.gray("Latest Prompt"),
       );
-      console.log(chalk.gray("━".repeat(100)));
+      console.log(pc.gray("━".repeat(100)));
 
       // Limit number of displayed items
       const displaySessions = sessions.slice(0, limit);
@@ -470,61 +505,61 @@ class CCContextCLI {
         const formattedPrompt = session.latestPrompt ? this.formatPromptForList(session.latestPrompt) : "";
 
         // Number (3 characters)
-        const num = chalk.yellow((index + 1).toString().padEnd(3));
+        const num = pc.yellow((index + 1).toString().padEnd(3));
 
         // Session ID (10 characters)
-        const sessionId = chalk.white(session.sessionId);
+        const sessionId = pc.white(session.sessionId);
 
         // Usage rate and progress bar (15 characters)
         const progressBar = this.createMiniProgressBar(usage);
-        const usageStr = `[${progressBar}] ${chalk.cyan(`${usage.toFixed(1).padStart(5)}%`)}`;
+        const usageStr = `[${progressBar}] ${pc.cyan(`${usage.toFixed(1).padStart(5)}%`)}`;
 
         // Model name (15 characters)
-        const model = chalk.blue(modelName.padEnd(15));
+        const model = pc.blue(modelName.padEnd(15));
 
         // Turn count (7 characters)
-        const turns = chalk.green(`${session.turns} turns`.padEnd(7));
+        const turns = pc.green(`${session.turns} turns`.padEnd(7));
 
         // Elapsed time (8 characters)
-        const ageStr = chalk.magenta(age.padEnd(8));
+        const ageStr = pc.magenta(age.padEnd(8));
 
         // Latest prompt
-        const prompt = chalk.dim(formattedPrompt);
+        const prompt = pc.dim(formattedPrompt);
 
         console.log(`${num} ${sessionId} ${usageStr} ${model} ${turns} ${ageStr} ${prompt}`);
       });
 
-      console.log(chalk.gray("━".repeat(100)));
+      console.log(pc.gray("━".repeat(100)));
       if (sessions.length > limit) {
-        console.log(chalk.gray(`Total sessions: ${sessions.length} (showing ${limit})`));
+        console.log(pc.gray(`Total sessions: ${sessions.length} (showing ${limit})`));
       } else {
-        console.log(chalk.gray(`Total sessions: ${sessions.length}`));
+        console.log(pc.gray(`Total sessions: ${sessions.length}`));
       }
-      console.log(chalk.gray("\nUsage: cccontext -s <number>"));
+      console.log(pc.gray("\nUsage: cccontext -s <number>"));
     } catch (error) {
-      console.error(chalk.red(`Error: ${(error as Error).message}`));
+      console.error(pc.red(`Error: ${(error as Error).message}`));
       process.exit(1);
     }
   }
 
   async clearCache(): Promise<void> {
     try {
-      console.log(chalk.yellow("🗑️  Clearing session cache..."));
+      console.log(pc.yellow("🗑️  Clearing session cache..."));
 
       // EnhancedSessionsManagerを使用してキャッシュをクリア
       const manager = new EnhancedSessionsManager();
       manager.clearCache();
-      console.log(chalk.green("✅ Session cache cleared successfully"));
+      console.log(pc.green("✅ Session cache cleared successfully"));
 
       process.exit(0);
     } catch (error) {
-      console.error(chalk.red(`Error clearing cache: ${(error as Error).message}`));
+      console.error(pc.red(`Error clearing cache: ${(error as Error).message}`));
       process.exit(1);
     }
   }
 
   async showSessionsLive(options: CLIOptions): Promise<void> {
-    console.log(chalk.cyan("🔍 Starting Claude Code Sessions Monitor..."));
+    console.log(pc.cyan("🔍 Starting Claude Code Sessions Monitor..."));
 
     // Initialize live view
     this.sessionsView = new SessionsLiveView();
@@ -612,21 +647,21 @@ class CCContextCLI {
       process.on("SIGINT", () => this.cleanup());
       process.on("SIGTERM", () => this.cleanup());
     } catch (error) {
-      console.error(chalk.red(`Error: ${(error as Error).message}`));
+      console.error(pc.red(`Error: ${(error as Error).message}`));
       this.cleanup();
       process.exit(1);
     }
   }
 
   async showSessionsLiveEnhanced(options: CLIOptions): Promise<void> {
-    console.log(chalk.cyan("🔍 Starting Enhanced Claude Code Sessions Monitor..."));
+    console.log(pc.cyan("🔍 Starting Enhanced Claude Code Sessions Monitor..."));
 
     // Setup debug mode
     const debugMode = process.env.DEBUG === "1" || options.debug;
     this.sessionsManager.setDebugMode(debugMode || false);
 
     if (debugMode) {
-      console.log(chalk.yellow("🐛 Debug mode enabled"));
+      console.log(pc.yellow("🐛 Debug mode enabled"));
     }
 
     // Initialize live view
@@ -676,7 +711,7 @@ class CCContextCLI {
 
       // Cleanup on process exit
       const cleanup = () => {
-        console.log(chalk.cyan("\n🔄 Shutting down sessions monitor..."));
+        console.log(pc.cyan("\n🔄 Shutting down sessions monitor..."));
         this.cleanup();
       };
 
@@ -686,7 +721,7 @@ class CCContextCLI {
       // Update status bar to show event-driven operation
       this.updateStatusBarForEventDriven();
     } catch (error) {
-      console.error(chalk.red(`Error: ${(error as Error).message}`));
+      console.error(pc.red(`Error: ${(error as Error).message}`));
       this.cleanup();
       process.exit(1);
     }
@@ -855,7 +890,7 @@ const cli = new CCContextCLI();
 program
   .name("cccontext")
   .description("Real-time context usage monitor for Claude Code")
-  .version("1.0.0")
+  .version("1.1.1")
   .exitOverride()
   .configureOutput({
     writeOut: (str: string) => {
@@ -903,7 +938,6 @@ program.on("command:*", (operands: string[]) => {
 // Default command (when executed without arguments)
 program
   .option("--list", "List all sessions for selection")
-  .option("--session <number>", "Monitor specific session by number from list")
   .action((options: CLIOptions) => {
     // Check command line arguments
     const args = process.argv.slice(2);
@@ -916,7 +950,8 @@ program
     if (options.list) {
       cli.listSessionsForSelection({ limit: options.listLimit || 20 });
     } else {
-      cli.monitorLive({ live: true, session: options.session });
+      // Default to monitor without session selection
+      cli.monitorLive({ live: true });
     }
   });
 
@@ -924,10 +959,12 @@ try {
   program.parse(process.argv);
 } catch (error: unknown) {
   // CommanderのexitOverrideでhelp/version時に例外が発生
-  const err = error as { code?: string };
+  const err = error as { code?: string; message?: string };
   if (err.code === "commander.helpDisplayed" || err.code === "commander.version") {
     process.exit(0);
   } else if (err.code?.startsWith("commander.")) {
+    // Commander already outputs error through configureOutput.writeErr
+    // Just exit with error code
     process.exit(1);
   } else {
     throw error;
