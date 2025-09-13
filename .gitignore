@@ -3,6 +3,8 @@ node_modules/
 .serena/
 coverage/
 dist/
+bundle-meta.json
+bundle-analysis.txt
 
 # TypeScript build output
 *.js.map
@@ -11,4 +13,5 @@ dist/
 
 # Backup files
 .backup-mjs/
+
 

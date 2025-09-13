@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { program } from "commander";
-import chalk from "chalk";
+import pc from "picocolors";
 import fs from "fs";
 import path from "path";
 import type { SessionData } from "./types/index.js";
@@ -75,7 +75,7 @@ program
       // Find active session to monitor
       const activeSession = await watcher.findActiveSession();
       if (!activeSession) {
-        console.log(chalk.red("No active Claude Code sessions found."));
+        console.log(pc.red("No active Claude Code sessions found."));
         process.exit(1);
       }
       
@@ -97,7 +97,7 @@ program
       });
     } else {
       // Non-live mode implementation
-      console.log(chalk.yellow("Use --live flag for real-time monitoring"));
+      console.log(pc.yellow("Use --live flag for real-time monitoring"));
       process.exit(0);
     }
   });
@@ -115,7 +115,7 @@ program
       const { EnhancedSessionsManager } = await loadSessionsCommand();
       const manager = new EnhancedSessionsManager();
       manager.clearCache();
-      console.log(chalk.green("✓ Session cache cleared"));
+      console.log(pc.green("✓ Session cache cleared"));
       process.exit(0);
     }
     
@@ -127,16 +127,16 @@ program
       const sessions = allSessions.slice(0, Number(options.limit) || 10);
       
       // Display sessions list
-      console.log(chalk.cyan.bold("\n📊 Recent Claude Code Sessions\n"));
+      console.log(pc.cyan(pc.bold("\n📊 Recent Claude Code Sessions\n")));
       sessions.forEach((session, index) => {
-        console.log(chalk.yellow(`[${index + 1}] ${session.sessionId}`));
-        console.log(chalk.gray(`    Model: ${session.model}`));
-        console.log(chalk.gray(`    Tokens: ${session.totalTokens.toLocaleString()}`));
+        console.log(pc.yellow(`[${index + 1}] ${session.sessionId}`));
+        console.log(pc.gray(`    Model: ${session.model}`));
+        console.log(pc.gray(`    Tokens: ${session.totalTokens.toLocaleString()}`));
         if (session.latestPrompt) {
           const truncated = session.latestPrompt.length > 50 
             ? `${session.latestPrompt.substring(0, 50)}...`
             : session.latestPrompt;
-          console.log(chalk.gray(`    Latest: ${truncated}`));
+          console.log(pc.gray(`    Latest: ${truncated}`));
         }
         console.log();
       });
@@ -199,7 +199,7 @@ program
         // Find active session to monitor
         const activeSession = await watcher.findActiveSession();
         if (!activeSession) {
-          console.log(chalk.red("No active Claude Code sessions found."));
+          console.log(pc.red("No active Claude Code sessions found."));
           process.exit(1);
         }
         
@@ -220,10 +220,10 @@ program
           process.exit(0);
         });
       } else {
-        console.log(chalk.yellow("Use --live flag for real-time monitoring"));
-        console.log(chalk.gray("\nAvailable commands:"));
-        console.log(chalk.gray("  cccontext monitor --live    Monitor context usage"));
-        console.log(chalk.gray("  cccontext sessions --live   View active sessions"));
+        console.log(pc.yellow("Use --live flag for real-time monitoring"));
+        console.log(pc.gray("\nAvailable commands:"));
+        console.log(pc.gray("  cccontext monitor --live    Monitor context usage"));
+        console.log(pc.gray("  cccontext sessions --live   View active sessions"));
         process.exit(0);
       }
     }

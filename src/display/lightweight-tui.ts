@@ -1,6 +1,5 @@
-// @ts-ignore - cli-table3 will be installed later
 import Table from "cli-table3";
-import chalk from "chalk";
+import pc from "picocolors";
 import type {
   TUIScreen,
   TUIBox,
@@ -131,15 +130,15 @@ class LightweightBox implements TUIBox {
     if (this.style.fg) {
       const colorKey = this.style.fg;
       // Using dynamic color access with proper type checking
-      const chalkColors = chalk as typeof chalk & Record<string, (text: string) => string>;
-      if (colorKey && colorKey in chalkColors && typeof chalkColors[colorKey] === 'function') {
-        output = chalkColors[colorKey](output);
+      const picoColors = pc as typeof pc & Record<string, (text: string) => string>;
+      if (colorKey && colorKey in picoColors && typeof picoColors[colorKey] === 'function') {
+        output = picoColors[colorKey](output);
       }
     }
     
     // Add label if present
     if (this.options.label) {
-      output = `${chalk.cyan(this.options.label)}\n${output}`;
+      output = `${pc.cyan(this.options.label)}\n${output}`;
     }
     
     // Position cursor if needed
@@ -197,7 +196,7 @@ class LightweightTable implements TUITable {
   
   render(): void {
     const table = new Table({
-      head: this.headers.map(h => chalk.cyan.bold(h)),
+      head: this.headers.map(h => pc.cyan(pc.bold(h))),
       style: {
         head: [],
         border: [],
@@ -224,7 +223,7 @@ class LightweightTable implements TUITable {
     // Add rows with selection highlighting
     this.rows.forEach((row, index) => {
       if (index === this.selectedRow) {
-        table.push(row.map(cell => chalk.black.bgCyan(cell)));
+        table.push(row.map(cell => pc.bgCyan(pc.black(cell))));
       } else {
         table.push(row);
       }

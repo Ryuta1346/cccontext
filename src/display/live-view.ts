@@ -1,8 +1,8 @@
 import blessed from "blessed";
-import chalk from "chalk";
+import pc from "picocolors";
 
 // Type-safe color definitions
-type ChalkColor =
+type PicoColor =
   | "red"
   | "green"
   | "yellow"
@@ -14,30 +14,30 @@ type ChalkColor =
   | "yellowBright"
   | "white";
 
-function getChalkColorFunction(colorName: ChalkColor) {
+function getPicoColorFunction(colorName: PicoColor) {
   switch (colorName) {
     case "red":
-      return chalk.red;
+      return pc.red;
     case "green":
-      return chalk.green;
+      return pc.green;
     case "yellow":
-      return chalk.yellow;
+      return pc.yellow;
     case "blue":
-      return chalk.blue;
+      return pc.blue;
     case "magenta":
-      return chalk.magenta;
+      return pc.magenta;
     case "cyan":
-      return chalk.cyan;
+      return pc.cyan;
     case "gray":
-      return chalk.gray;
+      return pc.gray;
     case "redBright":
-      return chalk.redBright;
+      return (text: string) => pc.red(pc.bold(text));
     case "yellowBright":
-      return chalk.yellowBright;
+      return (text: string) => pc.yellow(pc.bold(text));
     case "white":
-      return chalk.white;
+      return pc.white;
     default:
-      return chalk.white;
+      return pc.white;
   }
 }
 
@@ -306,9 +306,9 @@ export class LiveView {
   private formatSessionInfo(info: ContextInfo): string {
     const duration = this.calculateDuration(info.startTime);
     return `
-Session: ${chalk.yellow(info.sessionId)}
-Model: ${chalk.cyan(info.modelName)}
-Started: ${chalk.gray(duration)} ago`;
+Session: ${pc.yellow(info.sessionId)}
+Model: ${pc.cyan(info.modelName)}
+Started: ${pc.gray(duration)} ago`;
   }
 
   private formatContextUsage(info: ContextInfo): string {
@@ -323,19 +323,19 @@ Started: ${chalk.gray(duration)} ago`;
       const acColor = this.getAutoCompactColor(ac.warningLevel || "normal");
 
       if (ac.remainingPercentage > 0) {
-        const colorFunc = getChalkColorFunction(acColor);
+        const colorFunc = getPicoColorFunction(acColor);
         autoCompactInfo = `\nLeft until Auto-compact: ${colorFunc(`${ac.remainingPercentage.toFixed(1)}%`)}`;
       } else {
-        autoCompactInfo = `\n${chalk.red.bold("AUTO-COMPACT ACTIVE")}`;
+        autoCompactInfo = `\n${pc.red(pc.bold("AUTO-COMPACT ACTIVE"))}`;
       }
     }
 
     return `
-${bar} ${getChalkColorFunction(color)(`${percentage}%`)} (${this.formatTokens(
+${bar} ${getPicoColorFunction(color)(`${percentage}%`)} (${this.formatTokens(
       info.totalTokens,
     )}/${this.formatTokens(info.contextWindow)})
 
-Remaining: ${chalk.green(
+Remaining: ${pc.green(
       this.formatTokens(info.remainingTokens),
     )} tokens (${info.remainingPercentage.toFixed(1)}%)${autoCompactInfo}
 ${this.getWarningMessage(info)}`;
@@ -347,10 +347,10 @@ ${this.getWarningMessage(info)}`;
       return "No recent turn data";
     }
     return `
-Input:  ${chalk.blue(this.formatTokens(turn.input))} tokens
-Output: ${chalk.magenta(this.formatTokens(turn.output))} tokens
-Cache:  ${chalk.gray(this.formatTokens(turn.cache))} tokens (read)
-Total:  ${chalk.yellow(this.formatTokens(turn.total))} tokens (${turn.percentage.toFixed(2)}% of window)`;
+Input:  ${pc.blue(this.formatTokens(turn.input))} tokens
+Output: ${pc.magenta(this.formatTokens(turn.output))} tokens
+Cache:  ${pc.gray(this.formatTokens(turn.cache))} tokens (read)
+Total:  ${pc.yellow(this.formatTokens(turn.total))} tokens (${turn.percentage.toFixed(2)}% of window)`;
   }
 
   private formatLatestPrompt(info: ContextInfo): string {
@@ -363,16 +363,16 @@ Total:  ${chalk.yellow(this.formatTokens(turn.total))} tokens (${turn.percentage
       displayText = `${displayText.substring(0, 100)}...`;
     }
 
-    return `\n${chalk.dim(displayText)}`;
+    return `\n${pc.dim(displayText)}`;
   }
 
   private formatSessionTotals(info: ContextInfo): string {
     return `
-Turns: ${chalk.cyan(info.turns)}
-Total Tokens: ${chalk.yellow(this.formatTokens(info.totalTokens))}
-Cost: ${chalk.green(this.formatCost(info.totalCost))}
-Avg/Turn: ${chalk.gray(this.formatTokens(info.averageTokensPerTurn))}
-Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? "∞" : info.estimatedRemainingTurns)}`;
+Turns: ${pc.cyan(info.turns)}
+Total Tokens: ${pc.yellow(this.formatTokens(info.totalTokens))}
+Cost: ${pc.green(this.formatCost(info.totalCost))}
+Avg/Turn: ${pc.gray(this.formatTokens(info.averageTokensPerTurn))}
+Est. Remaining Turns: ${pc.cyan(info.estimatedRemainingTurns === Infinity ? "∞" : info.estimatedRemainingTurns)}`;
   }
 
   private createProgressBar(percentage: number): string {
@@ -382,13 +382,13 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? "
     const empty = Math.max(0, width - filled);
 
     const color = this.getPercentageColor(safePercentage);
-    const filledChar = getChalkColorFunction(color)("█");
-    const emptyChar = chalk.gray("░");
+    const filledChar = getPicoColorFunction(color)("█");
+    const emptyChar = pc.gray("░");
 
     return filledChar.repeat(filled) + emptyChar.repeat(empty);
   }
 
-  private getPercentageColor(percentage: number): ChalkColor {
+  private getPercentageColor(percentage: number): PicoColor {
     if (percentage >= 95) return "red";
     if (percentage >= 90) return "redBright";
     if (percentage >= 80) return "yellow";
@@ -409,7 +409,7 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? "
     }
   }
 
-  private getAutoCompactColor(warningLevel: string): ChalkColor {
+  private getAutoCompactColor(warningLevel: string): PicoColor {
     switch (warningLevel) {
       case "active":
         return "red";
@@ -427,11 +427,11 @@ Est. Remaining Turns: ${chalk.cyan(info.estimatedRemainingTurns === Infinity ? "
   private getWarningMessage(info: ContextInfo): string {
     switch (info.warningLevel) {
       case "critical":
-        return chalk.red("⚠️  CRITICAL: Context limit nearly reached!");
+        return pc.red("⚠️  CRITICAL: Context limit nearly reached!");
       case "severe":
-        return chalk.redBright("⚠️  WARNING: Approaching context limit");
+        return pc.red(pc.bold("⚠️  WARNING: Approaching context limit"));
       case "warning":
-        return chalk.yellow("⚠️  Notice: High context usage");
+        return pc.yellow("⚠️  Notice: High context usage");
       default:
         return "";
     }
