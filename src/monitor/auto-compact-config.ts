@@ -38,6 +38,8 @@ export const AUTO_COMPACT_CONFIG: AutoCompactConfiguration = {
     "claude-opus-4-20250514": 0.92,
     "claude-opus-4-1-20250805": 0.92,
     "claude-sonnet-4-20250514": 0.92,
+    "claude-sonnet-4-5-20250929": 0.92,
+    "claude-haiku-4-5-20251001": 0.92,
     "claude-3-haiku-20240307": 0.92,
     "claude-2.1": 0.92,
     "claude-2.0": 0.92,

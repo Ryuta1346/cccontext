@@ -176,8 +176,10 @@ AUTO-COMPACT ACTIVE
 
 - Claude Opus 4.1
 - Claude Opus 4
+- Claude Sonnet 4.5
 - Claude Sonnet 4
 - Claude 3.5 Sonnet
+- Claude Haiku 4.5
 - Claude 3.5 Haiku
 
 ## Additional Information

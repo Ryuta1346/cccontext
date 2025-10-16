@@ -173,13 +173,13 @@ AUTO-COMPACT ACTIVE
 
 ## Modelos Compatibles
 
-- Claude 3 Opus
+- Claude Opus 4.1
 - Claude Opus 4
-- Claude Opus 4.1 (Lanzado en Agosto 2025)
-- Claude Sonnet 4 (Lanzado en Mayo 2025)
+- Claude Sonnet 4.5
+- Claude Sonnet 4
 - Claude 3.5 Sonnet
+- Claude Haiku 4.5
 - Claude 3.5 Haiku
-- Claude 3 Haiku
 
 ## Información Adicional
 
