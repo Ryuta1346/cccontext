@@ -56,6 +56,13 @@ export const PRICING: PricingConfig = {
     outputPerMillion: 11.25,
     name: "Claude Sonnet 4",
   },
+  "claude-sonnet-4-5-20250929": {
+    input: 3.0,
+    output: 15.0,
+    inputPerMillion: 3.0,
+    outputPerMillion: 15.0,
+    name: "Claude Sonnet 4.5",
+  },
   "claude-3-5-sonnet-20241022": {
     input: 3.0,
     output: 15.0,
@@ -69,6 +76,13 @@ export const PRICING: PricingConfig = {
     inputPerMillion: 1.0,
     outputPerMillion: 5.0,
     name: "Claude 3.5 Haiku",
+  },
+  "claude-haiku-4-5-20251001": {
+    input: 1.0,
+    output: 5.0,
+    inputPerMillion: 1.0,
+    outputPerMillion: 5.0,
+    name: "Claude Haiku 4.5",
   },
   "claude-3-haiku-20240307": {
     input: 0.25,
@@ -85,8 +99,10 @@ export const CONTEXT_WINDOWS: ContextWindowConfig = {
   "claude-opus-4-20250514": 200_000,
   "claude-opus-4-1-20250805": 200_000,
   "claude-sonnet-4-20250514": 200_000,
+  "claude-sonnet-4-5-20250929": 200_000,
   "claude-3-5-sonnet-20241022": 200_000,
   "claude-3-5-haiku-20241022": 200_000,
+  "claude-haiku-4-5-20251001": 200_000,
   "claude-3-haiku-20240307": 200_000,
   "claude-2.1": 200_000,
   "claude-2.0": 100_000,
