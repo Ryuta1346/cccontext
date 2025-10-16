@@ -5,7 +5,7 @@ coverage/
 dist/
 bundle-meta.json
 bundle-analysis.txt
-
+docs/
 # TypeScript build output
 *.js.map
 *.d.ts.map
