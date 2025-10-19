@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-10-17
+
+### Added
+- Support for Claude Sonnet 4.5 (claude-sonnet-4-5-20250929) model (#13)
+  - Pricing configuration
+  - Context window settings (200K tokens)
+  - Auto-compact threshold configuration
+- Support for Claude Haiku 4.5 (claude-haiku-4-5-20251001) model (#13)
+  - Pricing configuration
+  - Context window settings (200K tokens)
+  - Auto-compact threshold configuration
+
+### Changed
+- Updated documentation across all language versions (README.ja.md, README.zh.md, README.ko.md, README.es.md)
+- Enhanced model configuration system for better extensibility
+
+### Fixed
+- Updated .gitignore file for better project maintenance
+
 ## [1.2.0] - 2025-01-13
 
 ### Added
@@ -58,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Token usage visualization
 - Auto-compact detection
 
+[1.3.0]: https://github.com/ryuta1346/cccontext/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/ryuta1346/cccontext/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/ryuta1346/cccontext/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/ryuta1346/cccontext/compare/v1.0.0...v1.1.0
