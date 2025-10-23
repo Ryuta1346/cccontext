@@ -1,4 +1,7 @@
 import { program } from "commander";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { LiveView } from "./display/live-view.js";
 import { SessionsLiveView } from "./display/sessions-live-view.js";
 import { ContextTracker } from "./monitor/context-tracker.js";
@@ -6,6 +9,14 @@ import { EnhancedSessionsManager } from "./monitor/enhanced-sessions-manager.js"
 import { SessionWatcher } from "./monitor/session-watcher.js";
 import { UsageCalculator } from "./monitor/usage-calculator.js";
 import type { SessionData } from "./types/index.js";
+
+// Get package version
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, "../package.json"), "utf-8")
+);
+const version = packageJson.version;
 
 // ContextInfo型を定義（monitor/context-tracker.tsから参照）
 interface ContextInfo {
@@ -890,7 +901,7 @@ const cli = new CCContextCLI();
 program
   .name("cccontext")
   .description("Real-time context usage monitor for Claude Code")
-  .version("1.1.1")
+  .version(version)
   .exitOverride()
   .configureOutput({
     writeOut: (str: string) => {
