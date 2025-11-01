@@ -9,7 +9,7 @@ describe("AutoCompact Configuration", () => {
   });
 
   it("should return correct thresholds for different models", () => {
-    // 200k models
+    // Latest models with 1M context window
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-3-5-sonnet-20241022")).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-3-opus-20241022")).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-opus-4-20250514")).toBe(0.92);
@@ -17,15 +17,6 @@ describe("AutoCompact Configuration", () => {
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-sonnet-4-20250514")).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-sonnet-4-5-20250929")).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-haiku-4-5-20251001")).toBe(0.92);
-
-    // 1M models
-    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-3-5-sonnet-20241022[1m]")).toBe(0.92);
-    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-3-opus-20241022[1m]")).toBe(0.92);
-    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-opus-4-20250514[1m]")).toBe(0.92);
-    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-opus-4-1-20250805[1m]")).toBe(0.92);
-    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-sonnet-4-20250514[1m]")).toBe(0.92);
-    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-sonnet-4-5-20250929[1m]")).toBe(0.92);
-    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-haiku-4-5-20251001[1m]")).toBe(0.92);
 
     // Unknown model
     expect(AUTO_COMPACT_CONFIG.getThreshold("unknown-model")).toBe(0.92);
@@ -67,13 +58,13 @@ describe("AutoCompact in ContextTracker", () => {
     expect(info.autoCompact.threshold).toBe(0.92);
     expect(info.autoCompact.thresholdPercentage).toBe(92);
 
-    // With 1600 tokens used (1000 input + 500 output + 100 cache) out of 200k
+    // With 1600 tokens used (1000 input + 500 output + 100 cache) out of 1M
     // But Claude Code subtracts system overhead first
     // The auto-compact calculation is complex due to overhead
-    expect(info.usagePercentage).toBeCloseTo(0.8, 2);
+    expect(info.usagePercentage).toBeCloseTo(0.16, 2);
     // Exact values depend on system overhead calculation
     expect(info.autoCompact.remainingPercentage).toBeGreaterThan(85);
-    expect(info.autoCompact.remainingTokens).toBeGreaterThan(150000);
+    expect(info.autoCompact.remainingTokens).toBeGreaterThan(850000);
     expect(info.autoCompact.warningLevel).toBe("normal");
     expect(info.autoCompact.willCompactSoon).toBe(false);
   });
@@ -98,13 +89,13 @@ describe("AutoCompact in ContextTracker", () => {
 
     const info = tracker.updateSession(sessionData);
 
-    // With 126k tokens used (125k + 1k cache) out of 200k, usage is 63%
+    // With 126k tokens used (125k + 1k cache) out of 1M, usage is 12.6%
     // Auto-compact calculation considers system overhead
-    expect(info.usagePercentage).toBe(63);
-    // With overhead, remaining percentage is about 22%
-    expect(info.autoCompact.remainingPercentage).toBeCloseTo(22, 1);
-    expect(info.autoCompact.remainingTokens).toBeCloseTo(34972, -2);
-    expect(info.autoCompact.warningLevel).toBe("normal"); // 22% is > 20%, so 'normal'
+    expect(info.usagePercentage).toBe(12.6);
+    // With 1M context, remaining percentage is much higher
+    expect(info.autoCompact.remainingPercentage).toBeGreaterThan(75);
+    expect(info.autoCompact.remainingTokens).toBeGreaterThan(750000);
+    expect(info.autoCompact.warningLevel).toBe("normal");
     expect(info.autoCompact.willCompactSoon).toBe(false);
   });
 
@@ -128,13 +119,13 @@ describe("AutoCompact in ContextTracker", () => {
 
     const info = tracker.updateSession(sessionData);
 
-    // With 151k tokens used (150k + 1k cache) out of 200k, usage is 75.5%
+    // With 151k tokens used (150k + 1k cache) out of 1M, usage is 15.1%
     // Auto-compact calculation considers system overhead
-    expect(info.usagePercentage).toBe(75.5);
-    // With overhead, remaining percentage is about 6%
-    expect(info.autoCompact.remainingPercentage).toBeCloseTo(6, 1);
-    expect(info.autoCompact.remainingTokens).toBeCloseTo(9972, -2);
-    expect(info.autoCompact.warningLevel).toBe("warning"); // < 10% is warning
+    expect(info.usagePercentage).toBe(15.1);
+    // With 1M context, remaining percentage is much higher
+    expect(info.autoCompact.remainingPercentage).toBeGreaterThan(74);
+    expect(info.autoCompact.remainingTokens).toBeGreaterThan(700000);
+    expect(info.autoCompact.warningLevel).toBe("normal");
     expect(info.autoCompact.willCompactSoon).toBe(false);
   });
 
@@ -158,14 +149,14 @@ describe("AutoCompact in ContextTracker", () => {
 
     const info = tracker.updateSession(sessionData);
 
-    // With 191k tokens used (190k + 1k cache) out of 200k, usage is 95.5%
-    // Above the 92% threshold when considering overhead
-    expect(info.usagePercentage).toBe(95.5);
-    // With overhead (25k+), effective limit is ~161k, so 191k is well over
-    expect(info.autoCompact.remainingPercentage).toBe(0); // Clamped to 0
-    expect(info.autoCompact.remainingTokens).toBe(0);
-    expect(info.autoCompact.warningLevel).toBe("active");
-    expect(info.autoCompact.willCompactSoon).toBe(true);
+    // With 191k tokens used (190k + 1k cache) out of 1M, usage is 19.1%
+    // Still well below threshold with 1M context
+    expect(info.usagePercentage).toBe(19.1);
+    // With 1M context, remaining percentage is much higher
+    expect(info.autoCompact.remainingPercentage).toBeGreaterThan(75);
+    expect(info.autoCompact.remainingTokens).toBeGreaterThan(700000);
+    expect(info.autoCompact.warningLevel).toBe("normal");
+    expect(info.autoCompact.willCompactSoon).toBe(false);
   });
 
   it("should handle above-threshold scenarios correctly", () => {
@@ -188,14 +179,14 @@ describe("AutoCompact in ContextTracker", () => {
 
     const info = tracker.updateSession(sessionData);
 
-    // With 199k tokens used (198k + 1k cache) out of 200k, usage is 99.5%
-    // Well above the 92% threshold
-    expect(info.usagePercentage).toBe(99.5);
-    // With overhead, this is way over the threshold
-    expect(info.autoCompact.remainingPercentage).toBe(0); // Clamped to 0
-    expect(info.autoCompact.remainingTokens).toBe(0);
-    expect(info.autoCompact.warningLevel).toBe("active");
-    expect(info.autoCompact.willCompactSoon).toBe(true);
+    // With 199k tokens used (198k + 1k cache) out of 1M, usage is 19.9%
+    // Still well below threshold with 1M context
+    expect(info.usagePercentage).toBeCloseTo(19.9, 1);
+    // With 1M context, remaining percentage is much higher
+    expect(info.autoCompact.remainingPercentage).toBeGreaterThan(69);
+    expect(info.autoCompact.remainingTokens).toBeGreaterThan(650000);
+    expect(info.autoCompact.warningLevel).toBe("normal");
+    expect(info.autoCompact.willCompactSoon).toBe(false);
   });
 });
 

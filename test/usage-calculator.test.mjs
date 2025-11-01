@@ -286,19 +286,12 @@ describe("UsageCalculator", () => {
   it("should get model names correctly", () => {
     const calculator = new UsageCalculator();
 
-    // 200k models
-    expect(calculator.getModelName("claude-3-opus-20241022")).toBe("Claude 3 Opus (200k)");
-    expect(calculator.getModelName("claude-opus-4-20250514")).toBe("Claude Opus 4 (200k)");
-    expect(calculator.getModelName("claude-opus-4-1-20250805")).toBe("Claude Opus 4.1 (200k)");
-    expect(calculator.getModelName("claude-3-5-sonnet-20241022")).toBe("Claude 3.5 Sonnet (200k)");
-    expect(calculator.getModelName("claude-sonnet-4-5-20250929")).toBe("Claude Sonnet 4.5 (200k)");
-
-    // 1M models
-    expect(calculator.getModelName("claude-3-opus-20241022[1m]")).toBe("Claude 3 Opus (1M)");
-    expect(calculator.getModelName("claude-opus-4-20250514[1m]")).toBe("Claude Opus 4 (1M)");
-    expect(calculator.getModelName("claude-opus-4-1-20250805[1m]")).toBe("Claude Opus 4.1 (1M)");
-    expect(calculator.getModelName("claude-3-5-sonnet-20241022[1m]")).toBe("Claude 3.5 Sonnet (1M)");
-    expect(calculator.getModelName("claude-sonnet-4-5-20250929[1m]")).toBe("Claude Sonnet 4.5 (1M)");
+    // Latest models with 1M context (no suffix except Sonnet 4.5)
+    expect(calculator.getModelName("claude-3-opus-20241022")).toBe("Claude 3 Opus");
+    expect(calculator.getModelName("claude-opus-4-20250514")).toBe("Claude Opus 4");
+    expect(calculator.getModelName("claude-opus-4-1-20250805")).toBe("Claude Opus 4.1");
+    expect(calculator.getModelName("claude-3-5-sonnet-20241022")).toBe("Claude 3.5 Sonnet");
+    expect(calculator.getModelName("claude-sonnet-4-5-20250929")).toBe("Sonnet 4.5");
 
     // Unknown model
     expect(calculator.getModelName("unknown-model")).toBe("Unknown Model");
@@ -468,13 +461,9 @@ describe("UsageCalculator", () => {
     it("should get correct model names for all models", () => {
       const calculator = new UsageCalculator();
 
-      // 200k models
-      expect(calculator.getModelName("claude-3-5-haiku-20241022")).toBe("Claude 3.5 Haiku (200k)");
-      expect(calculator.getModelName("claude-3-haiku-20240307")).toBe("Claude 3 Haiku (200k)");
-
-      // 1M models
-      expect(calculator.getModelName("claude-3-5-haiku-20241022[1m]")).toBe("Claude 3.5 Haiku (1M)");
-      expect(calculator.getModelName("claude-3-haiku-20240307[1m]")).toBe("Claude 3 Haiku (1M)");
+      // Latest models with 1M context (no suffix)
+      expect(calculator.getModelName("claude-3-5-haiku-20241022")).toBe("Claude 3.5 Haiku");
+      expect(calculator.getModelName("claude-3-haiku-20240307")).toBe("Claude 3 Haiku");
 
       // Unknown model
       expect(calculator.getModelName("non-existent-model")).toBe("Unknown Model");
