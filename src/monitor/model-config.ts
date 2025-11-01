@@ -66,7 +66,7 @@ export const PRICING: PricingConfig = {
     output: 15.0,
     inputPerMillion: 3.0,
     outputPerMillion: 15.0,
-    name: "Sonnet 4.5 with 1M",
+    name: "Sonnet 4.5",
   },
   // Claude 3.5 Sonnet
   "claude-3-5-sonnet-20241022": {
