@@ -268,7 +268,7 @@ invalid json line
 
       expect(result).toBeTruthy();
       expect(result.totalTokens).toBe(100000);
-      expect(result.usagePercentage).toBe(50); // 100000 / 200000 * 100
+      expect(result.usagePercentage).toBe(10); // 100000 / 1000000 * 100
     });
 
     it("should calculate usage percentage for different models", async () => {
@@ -289,7 +289,7 @@ invalid json line
 
       expect(result).toBeTruthy();
       expect(result.totalTokens).toBe(200000);
-      expect(result.usagePercentage).toBe(100); // 200000 / 200000 * 100
+      expect(result.usagePercentage).toBe(20); // 200000 / 1000000 * 100
     });
 
     it("should handle zero token sessions", async () => {
@@ -331,7 +331,7 @@ invalid json line
 
       expect(result).toBeTruthy();
       expect(result.totalTokens).toBe(250000);
-      expect(result.usagePercentage).toBe(125); // 250000 / 200000 * 100
+      expect(result.usagePercentage).toBe(25); // 250000 / 1000000 * 100
     });
   });
 

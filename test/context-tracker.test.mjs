@@ -90,26 +90,20 @@ describe("ContextTracker", () => {
   it("should get correct context window size for models", () => {
     const tracker = new ContextTracker();
 
-    // 200k models
-    expect(tracker.getContextWindow("claude-3-opus-20241022")).toBe(200_000);
-    expect(tracker.getContextWindow("claude-opus-4-20250514")).toBe(200_000);
-    expect(tracker.getContextWindow("claude-opus-4-1-20250805")).toBe(200_000);
-    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022")).toBe(200_000);
-    expect(tracker.getContextWindow("claude-sonnet-4-5-20250929")).toBe(200_000);
-
-    // 1M models
-    expect(tracker.getContextWindow("claude-3-opus-20241022[1m]")).toBe(1_000_000);
-    expect(tracker.getContextWindow("claude-opus-4-20250514[1m]")).toBe(1_000_000);
-    expect(tracker.getContextWindow("claude-opus-4-1-20250805[1m]")).toBe(1_000_000);
-    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022[1m]")).toBe(1_000_000);
-    expect(tracker.getContextWindow("claude-sonnet-4-5-20250929[1m]")).toBe(1_000_000);
+    // Latest models with 1M context window
+    expect(tracker.getContextWindow("claude-3-opus-20241022")).toBe(1_000_000);
+    expect(tracker.getContextWindow("claude-opus-4-20250514")).toBe(1_000_000);
+    expect(tracker.getContextWindow("claude-opus-4-1-20250805")).toBe(1_000_000);
+    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022")).toBe(1_000_000);
+    expect(tracker.getContextWindow("claude-sonnet-4-5-20250929")).toBe(1_000_000);
 
     // Legacy models
     expect(tracker.getContextWindow("claude-2.0")).toBe(100_000);
+    expect(tracker.getContextWindow("claude-2.1")).toBe(200_000);
     expect(tracker.getContextWindow("claude-instant-1.2")).toBe(100_000);
 
-    // Unknown model (default)
-    expect(tracker.getContextWindow("unknown-model")).toBe(200_000);
+    // Unknown model (default is now 1M)
+    expect(tracker.getContextWindow("unknown-model")).toBe(1_000_000);
   });
 
   it("should calculate context usage correctly", () => {
@@ -138,9 +132,9 @@ describe("ContextTracker", () => {
     const result = tracker.updateSession(sessionData);
 
     expect(result.totalTokens).toBe(3000);
-    expect(result.contextWindow).toBe(200_000);
-    expect(result.usagePercentage).toBe(1.5);
-    expect(result.remainingTokens).toBe(197_000);
+    expect(result.contextWindow).toBe(1_000_000);
+    expect(result.usagePercentage).toBe(0.3);
+    expect(result.remainingTokens).toBe(997_000);
     expect(result.turns).toBe(1);
     expect(result.warningLevel).toBe("normal");
   });
@@ -149,10 +143,10 @@ describe("ContextTracker", () => {
     const tracker = new ContextTracker();
 
     const testCases = [
-      { tokens: 160_000, expectedLevel: "warning" }, // 80%
-      { tokens: 180_000, expectedLevel: "severe" }, // 90%
-      { tokens: 190_000, expectedLevel: "critical" }, // 95%
-      { tokens: 100_000, expectedLevel: "normal" }, // 50%
+      { tokens: 800_000, expectedLevel: "warning" }, // 80%
+      { tokens: 900_000, expectedLevel: "severe" }, // 90%
+      { tokens: 950_000, expectedLevel: "critical" }, // 95%
+      { tokens: 500_000, expectedLevel: "normal" }, // 50%
     ];
 
     for (const testCase of testCases) {
@@ -201,7 +195,7 @@ describe("ContextTracker", () => {
     expect(result.latestTurn.output).toBe(2000);
     expect(result.latestTurn.cache).toBe(500);
     expect(result.latestTurn.total).toBe(3000); // 1000 + 2000 (cache not included)
-    expect(result.latestTurn.percentage).toBeCloseTo(1.5, 5); // 3000 / 200000 * 100
+    expect(result.latestTurn.percentage).toBeCloseTo(0.3, 5); // 3000 / 1000000 * 100
   });
 
   it("should format context info correctly", () => {
@@ -395,12 +389,15 @@ describe("ContextTracker", () => {
 
   describe("Model Names and Context Windows", () => {
     it("should have correct context window sizes", () => {
-      expect(CONTEXT_WINDOWS["claude-3-opus-20241022"]).toBe(200_000);
-      expect(CONTEXT_WINDOWS["claude-opus-4-20250514"]).toBe(200_000);
-      expect(CONTEXT_WINDOWS["claude-opus-4-1-20250805"]).toBe(200_000);
-      expect(CONTEXT_WINDOWS["claude-3-5-sonnet-20241022"]).toBe(200_000);
-      expect(CONTEXT_WINDOWS["claude-3-5-haiku-20241022"]).toBe(200_000);
-      expect(CONTEXT_WINDOWS["claude-3-haiku-20240307"]).toBe(200_000);
+      // Latest models with 1M context
+      expect(CONTEXT_WINDOWS["claude-3-opus-20241022"]).toBe(1_000_000);
+      expect(CONTEXT_WINDOWS["claude-opus-4-20250514"]).toBe(1_000_000);
+      expect(CONTEXT_WINDOWS["claude-opus-4-1-20250805"]).toBe(1_000_000);
+      expect(CONTEXT_WINDOWS["claude-3-5-sonnet-20241022"]).toBe(1_000_000);
+      expect(CONTEXT_WINDOWS["claude-3-5-haiku-20241022"]).toBe(1_000_000);
+      expect(CONTEXT_WINDOWS["claude-3-haiku-20240307"]).toBe(1_000_000);
+
+      // Legacy models
       expect(CONTEXT_WINDOWS["claude-2.1"]).toBe(200_000);
       expect(CONTEXT_WINDOWS["claude-2.0"]).toBe(100_000);
       expect(CONTEXT_WINDOWS["claude-instant-1.2"]).toBe(100_000);
@@ -468,7 +465,7 @@ describe("ContextTracker", () => {
         output: 2000,
         cache: 0,
         total: 3000,
-        percentage: 1.5,
+        percentage: 0.3,
       });
     });
 
