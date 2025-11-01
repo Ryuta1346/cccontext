@@ -208,16 +208,8 @@ export const DEFAULT_CONTEXT_WINDOW: number = 200_000;
 
 /**
  * Get model display name
- * Prioritizes 1M context window variant if available
  */
 export function getModelName(model: string): string {
-  // Try [1m] suffix variant first (1M context window)
-  const variantKey = `${model}[1m]`;
-  if (PRICING[variantKey]) {
-    return PRICING[variantKey].name;
-  }
-
-  // Fall back to standard model key
   const info = PRICING[model];
   return info ? info.name : DEFAULT_PRICING.name;
 }
@@ -231,21 +223,9 @@ export function getModelPricing(model: string): PricingInfo {
 
 /**
  * Get model context window size
- * Prioritizes 1M context window variant if available
  */
 export function getContextWindow(model: string): number {
-  // Try [1m] suffix variant first (1M context window)
-  const variantKey = `${model}[1m]`;
-  if (CONTEXT_WINDOWS[variantKey]) {
-    return CONTEXT_WINDOWS[variantKey];
-  }
-
-  // Fall back to standard model key
-  if (CONTEXT_WINDOWS[model]) {
-    return CONTEXT_WINDOWS[model];
-  }
-
-  return DEFAULT_CONTEXT_WINDOW;
+  return CONTEXT_WINDOWS[model] || DEFAULT_CONTEXT_WINDOW;
 }
 
 /**
