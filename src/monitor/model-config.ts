@@ -36,22 +36,8 @@ export const PRICING: PricingConfig = {
     outputPerMillion: 75.0,
     name: "Claude 3 Opus",
   },
-  "claude-3-opus-20241022[1m]": {
-    input: 15.0,
-    output: 75.0,
-    inputPerMillion: 15.0,
-    outputPerMillion: 75.0,
-    name: "Claude 3 Opus",
-  },
   // Claude Opus 4
   "claude-opus-4-20250514": {
-    input: 15.0,
-    output: 75.0,
-    inputPerMillion: 15.0,
-    outputPerMillion: 75.0,
-    name: "Claude Opus 4",
-  },
-  "claude-opus-4-20250514[1m]": {
     input: 15.0,
     output: 75.0,
     inputPerMillion: 15.0,
@@ -66,13 +52,6 @@ export const PRICING: PricingConfig = {
     outputPerMillion: 75.0,
     name: "Claude Opus 4.1",
   },
-  "claude-opus-4-1-20250805[1m]": {
-    input: 15.0,
-    output: 75.0,
-    inputPerMillion: 15.0,
-    outputPerMillion: 75.0,
-    name: "Claude Opus 4.1",
-  },
   // Claude Sonnet 4
   "claude-sonnet-4-20250514": {
     input: 2.25,
@@ -81,23 +60,8 @@ export const PRICING: PricingConfig = {
     outputPerMillion: 11.25,
     name: "Claude Sonnet 4",
   },
-  "claude-sonnet-4-20250514[1m]": {
-    input: 2.25,
-    output: 11.25,
-    inputPerMillion: 2.25,
-    outputPerMillion: 11.25,
-    name: "Claude Sonnet 4",
-  },
-  // Claude Sonnet 4.5 (200k)
+  // Claude Sonnet 4.5
   "claude-sonnet-4-5-20250929": {
-    input: 3.0,
-    output: 15.0,
-    inputPerMillion: 3.0,
-    outputPerMillion: 15.0,
-    name: "Sonnet 4.5 with 200K",
-  },
-  // Claude Sonnet 4.5 (1M)
-  "claude-sonnet-4-5-20250929[1m]": {
     input: 3.0,
     output: 15.0,
     inputPerMillion: 3.0,
@@ -112,22 +76,8 @@ export const PRICING: PricingConfig = {
     outputPerMillion: 15.0,
     name: "Claude 3.5 Sonnet",
   },
-  "claude-3-5-sonnet-20241022[1m]": {
-    input: 3.0,
-    output: 15.0,
-    inputPerMillion: 3.0,
-    outputPerMillion: 15.0,
-    name: "Claude 3.5 Sonnet",
-  },
   // Claude 3.5 Haiku
   "claude-3-5-haiku-20241022": {
-    input: 1.0,
-    output: 5.0,
-    inputPerMillion: 1.0,
-    outputPerMillion: 5.0,
-    name: "Claude 3.5 Haiku",
-  },
-  "claude-3-5-haiku-20241022[1m]": {
     input: 1.0,
     output: 5.0,
     inputPerMillion: 1.0,
@@ -142,22 +92,8 @@ export const PRICING: PricingConfig = {
     outputPerMillion: 5.0,
     name: "Claude Haiku 4.5",
   },
-  "claude-haiku-4-5-20251001[1m]": {
-    input: 1.0,
-    output: 5.0,
-    inputPerMillion: 1.0,
-    outputPerMillion: 5.0,
-    name: "Claude Haiku 4.5",
-  },
   // Claude 3 Haiku
   "claude-3-haiku-20240307": {
-    input: 0.25,
-    output: 1.25,
-    inputPerMillion: 0.25,
-    outputPerMillion: 1.25,
-    name: "Claude 3 Haiku",
-  },
-  "claude-3-haiku-20240307[1m]": {
     input: 0.25,
     output: 1.25,
     inputPerMillion: 0.25,
@@ -168,30 +104,21 @@ export const PRICING: PricingConfig = {
 
 // Model context window sizes
 export const CONTEXT_WINDOWS: ContextWindowConfig = {
-  // 200k context window models
-  "claude-3-opus-20241022": 200_000,
-  "claude-opus-4-20250514": 200_000,
-  "claude-opus-4-1-20250805": 200_000,
-  "claude-sonnet-4-20250514": 200_000,
-  "claude-sonnet-4-5-20250929": 200_000,
-  "claude-3-5-sonnet-20241022": 200_000,
-  "claude-3-5-haiku-20241022": 200_000,
-  "claude-haiku-4-5-20251001": 200_000,
-  "claude-3-haiku-20240307": 200_000,
+  // Latest models with 1M context window
+  "claude-3-opus-20241022": 1_000_000,
+  "claude-opus-4-20250514": 1_000_000,
+  "claude-opus-4-1-20250805": 1_000_000,
+  "claude-sonnet-4-20250514": 1_000_000,
+  "claude-sonnet-4-5-20250929": 1_000_000,
+  "claude-3-5-sonnet-20241022": 1_000_000,
+  "claude-3-5-haiku-20241022": 1_000_000,
+  "claude-haiku-4-5-20251001": 1_000_000,
+  "claude-3-haiku-20240307": 1_000_000,
+
+  // Legacy models
   "claude-2.1": 200_000,
   "claude-2.0": 100_000,
   "claude-instant-1.2": 100_000,
-
-  // 1M context window models
-  "claude-3-opus-20241022[1m]": 1_000_000,
-  "claude-opus-4-20250514[1m]": 1_000_000,
-  "claude-opus-4-1-20250805[1m]": 1_000_000,
-  "claude-sonnet-4-20250514[1m]": 1_000_000,
-  "claude-sonnet-4-5-20250929[1m]": 1_000_000,
-  "claude-3-5-sonnet-20241022[1m]": 1_000_000,
-  "claude-3-5-haiku-20241022[1m]": 1_000_000,
-  "claude-haiku-4-5-20251001[1m]": 1_000_000,
-  "claude-3-haiku-20240307[1m]": 1_000_000,
 };
 
 // Default pricing for unknown models
@@ -204,7 +131,7 @@ export const DEFAULT_PRICING: PricingInfo = {
 };
 
 // Default context window size
-export const DEFAULT_CONTEXT_WINDOW: number = 200_000;
+export const DEFAULT_CONTEXT_WINDOW: number = 1_000_000;
 
 /**
  * Get model display name
