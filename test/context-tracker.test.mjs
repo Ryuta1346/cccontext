@@ -90,13 +90,26 @@ describe("ContextTracker", () => {
   it("should get correct context window size for models", () => {
     const tracker = new ContextTracker();
 
+    // 200k models
     expect(tracker.getContextWindow("claude-3-opus-20241022")).toBe(200_000);
     expect(tracker.getContextWindow("claude-opus-4-20250514")).toBe(200_000);
     expect(tracker.getContextWindow("claude-opus-4-1-20250805")).toBe(200_000);
     expect(tracker.getContextWindow("claude-3-5-sonnet-20241022")).toBe(200_000);
+    expect(tracker.getContextWindow("claude-sonnet-4-5-20250929")).toBe(200_000);
+
+    // 1M models
+    expect(tracker.getContextWindow("claude-3-opus-20241022[1m]")).toBe(1_000_000);
+    expect(tracker.getContextWindow("claude-opus-4-20250514[1m]")).toBe(1_000_000);
+    expect(tracker.getContextWindow("claude-opus-4-1-20250805[1m]")).toBe(1_000_000);
+    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022[1m]")).toBe(1_000_000);
+    expect(tracker.getContextWindow("claude-sonnet-4-5-20250929[1m]")).toBe(1_000_000);
+
+    // Legacy models
     expect(tracker.getContextWindow("claude-2.0")).toBe(100_000);
     expect(tracker.getContextWindow("claude-instant-1.2")).toBe(100_000);
-    expect(tracker.getContextWindow("unknown-model")).toBe(200_000); // default
+
+    // Unknown model (default)
+    expect(tracker.getContextWindow("unknown-model")).toBe(200_000);
   });
 
   it("should calculate context usage correctly", () => {

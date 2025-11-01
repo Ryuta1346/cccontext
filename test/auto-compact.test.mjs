@@ -9,6 +9,7 @@ describe("AutoCompact Configuration", () => {
   });
 
   it("should return correct thresholds for different models", () => {
+    // 200k models
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-3-5-sonnet-20241022")).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-3-opus-20241022")).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-opus-4-20250514")).toBe(0.92);
@@ -16,6 +17,17 @@ describe("AutoCompact Configuration", () => {
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-sonnet-4-20250514")).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-sonnet-4-5-20250929")).toBe(0.92);
     expect(AUTO_COMPACT_CONFIG.getThreshold("claude-haiku-4-5-20251001")).toBe(0.92);
+
+    // 1M models
+    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-3-5-sonnet-20241022[1m]")).toBe(0.92);
+    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-3-opus-20241022[1m]")).toBe(0.92);
+    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-opus-4-20250514[1m]")).toBe(0.92);
+    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-opus-4-1-20250805[1m]")).toBe(0.92);
+    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-sonnet-4-20250514[1m]")).toBe(0.92);
+    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-sonnet-4-5-20250929[1m]")).toBe(0.92);
+    expect(AUTO_COMPACT_CONFIG.getThreshold("claude-haiku-4-5-20251001[1m]")).toBe(0.92);
+
+    // Unknown model
     expect(AUTO_COMPACT_CONFIG.getThreshold("unknown-model")).toBe(0.92);
   });
 

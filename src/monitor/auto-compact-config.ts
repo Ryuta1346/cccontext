@@ -32,6 +32,7 @@ export const AUTO_COMPACT_CONFIG: AutoCompactConfiguration = {
   },
 
   MODEL_THRESHOLDS: {
+    // 200k context window models
     "claude-3-5-sonnet-20241022": 0.92,
     "claude-3-5-haiku-20241022": 0.92,
     "claude-3-opus-20241022": 0.92,
@@ -44,6 +45,17 @@ export const AUTO_COMPACT_CONFIG: AutoCompactConfiguration = {
     "claude-2.1": 0.92,
     "claude-2.0": 0.92,
     "claude-instant-1.2": 0.92,
+
+    // 1M context window models
+    "claude-3-5-sonnet-20241022[1m]": 0.92,
+    "claude-3-5-haiku-20241022[1m]": 0.92,
+    "claude-3-opus-20241022[1m]": 0.92,
+    "claude-opus-4-20250514[1m]": 0.92,
+    "claude-opus-4-1-20250805[1m]": 0.92,
+    "claude-sonnet-4-20250514[1m]": 0.92,
+    "claude-sonnet-4-5-20250929[1m]": 0.92,
+    "claude-haiku-4-5-20251001[1m]": 0.92,
+    "claude-3-haiku-20240307[1m]": 0.92,
   },
 
   getThreshold(model: string): number {
