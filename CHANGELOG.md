@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-10-31
+
+### Added
+- Support for 1M context window variants of Claude models
+  - Added `[1m]` suffix support for model IDs (e.g., `claude-sonnet-4-5-20250929[1m]`)
+  - Context window configuration for 1M variants (1,000,000 tokens)
+  - Auto-compact threshold configuration for 1M variants
+  - Supported models with 1M context:
+    - Claude 3 Opus, Claude Opus 4, Claude Opus 4.1
+    - Claude Sonnet 4, Claude Sonnet 4.5
+    - Claude 3.5 Sonnet
+    - Claude 3.5 Haiku, Claude Haiku 4.5
+    - Claude 3 Haiku
+
+### Changed
+- Updated model display names to explicitly show context window size
+  - 200k models: Now display as "Model Name (200k)"
+  - 1M models: Display as "Model Name (1M)"
+  - Example: "Claude Sonnet 4.5 (1M)" vs "Claude Sonnet 4.5 (200k)"
+- Enhanced test coverage for 1M context window models
+  - Added tests for auto-compact configuration
+  - Added tests for context window size validation
+  - Added tests for model name display
+
+### Fixed
+- Model context window detection now properly distinguishes between 1M and 200k variants
+
 ## [1.3.0] - 2025-10-17
 
 ### Added

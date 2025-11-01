@@ -1,6 +1,6 @@
 {
   "name": "cccontext",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Real-time context usage monitor for Claude Code",
   "type": "module",
   "sideEffects": false,
