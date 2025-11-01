@@ -94,7 +94,7 @@ export const PRICING: PricingConfig = {
     output: 15.0,
     inputPerMillion: 3.0,
     outputPerMillion: 15.0,
-    name: "Claude Sonnet 4.5 (200k)",
+    name: "Sonnet 4.5 with 200K",
   },
   // Claude Sonnet 4.5 (1M)
   "claude-sonnet-4-5-20250929[1m]": {
@@ -102,7 +102,7 @@ export const PRICING: PricingConfig = {
     output: 15.0,
     inputPerMillion: 3.0,
     outputPerMillion: 15.0,
-    name: "Claude Sonnet 4.5 (1M)",
+    name: "Sonnet 4.5 with 1M",
   },
   // Claude 3.5 Sonnet
   "claude-3-5-sonnet-20241022": {
