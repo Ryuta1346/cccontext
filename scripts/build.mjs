@@ -60,6 +60,8 @@ async function build() {
     // Define environment variables
     define: {
       'process.env.NODE_ENV': isWatch ? '"development"' : '"production"',
+      // Keep CCCONTEXT_WINDOW_SIZE as a runtime check
+      'process.env.CCCONTEXT_WINDOW_SIZE': 'process.env.CCCONTEXT_WINDOW_SIZE',
     },
   };
 
