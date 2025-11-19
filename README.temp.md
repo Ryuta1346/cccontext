@@ -2,14 +2,19 @@
 
 You can use this tool with a custom context window size by setting the `CCCONTEXT_WINDOW_SIZE` environment variable.
 
-This requires 2 steps:
+## Run Using NPX
 
-1. Clone, build and link the project
-2. Set alias and/or run the command
+```bash
+CCCONTEXT_WINDOW_SIZE=200000 npx github:pablooliva/cccontext#add-configurable-context-window
+```
 
-## Clone, Build, Link
+Optionally, set an alias for the command:
 
-### Clone branch
+```bash
+alias cccontext="CCCONTEXT_WINDOW_SIZE=200000 npx github:pablooliva/cccontext#add-configurable-context-window"
+```
+
+## For Local Development
 
 ```bash
 git clone -b add-configurable-context-window https://github.com/pablooliva/cccontext.git
@@ -35,15 +40,4 @@ npm link
 
 ```bash
 CCCONTEXT_WINDOW_SIZE=200000 cccontext
-```
-## Using NPX
-
-```bash
-CCCONTEXT_WINDOW_SIZE=200000 npx github:pablooliva/cccontext#add-configurable-context-window
-```
-
-Optionally, set an alias for the command:
-
-```bash
-alias cccontext="CCCONTEXT_WINDOW_SIZE=200000 npx github:pablooliva/cccontext#add-configurable-context-window"
 ```

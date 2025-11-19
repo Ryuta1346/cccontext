@@ -25,6 +25,7 @@
     "build:watch": "node scripts/build.mjs --watch",
     "build:analyze": "node scripts/build.mjs --analyze",
     "clean": "rm -rf dist",
+    "prepare": "npm run build",
     "prebuild": "npm run clean",
     "size": "size-limit",
     "test": "vitest run",
