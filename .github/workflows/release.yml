@@ -113,6 +113,18 @@ jobs:
           OLD_VERSION="${{ steps.version.outputs.old_version }}"
           BRANCH="release/v${NEW_VERSION}"
 
+          # Clean up existing release branch/PR from previous attempts
+          if git ls-remote --exit-code origin "refs/heads/$BRANCH" > /dev/null 2>&1; then
+            echo "Remote branch $BRANCH already exists. Cleaning up..."
+            EXISTING_PR=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+            if [ -n "$EXISTING_PR" ]; then
+              echo "Closing existing PR #${EXISTING_PR}..."
+              gh pr close "$EXISTING_PR" --delete-branch
+            else
+              git push origin --delete "$BRANCH"
+            fi
+          fi
+
           git checkout -b "$BRANCH"
           git add package.json CHANGELOG.md
           git commit -m "release: v${NEW_VERSION}"
