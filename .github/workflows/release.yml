@@ -85,13 +85,14 @@ jobs:
           COMMITS=$(git log --pretty=format:"- %s" HEAD...$(git log --all --oneline --grep="^${OLD_VERSION}$" --format="%H" | head -1) 2>/dev/null || git log --pretty=format:"- %s" -10)
 
           # Create new changelog entry
-          ENTRY="## [${NEW_VERSION}] - ${DATE}\n\n### Changed\n\n${COMMITS}\n"
+          ENTRY=$(printf "## [%s] - %s\n\n### Changed\n\n%s\n" "$NEW_VERSION" "$DATE" "$COMMITS")
 
-          # Insert after the "# Changelog" header line
-          if head -1 CHANGELOG.md | grep -q "^# "; then
-            sed -i "0,/^## /{s|^## |${ENTRY}\n## |}" CHANGELOG.md
+          # Insert before the first ## heading (after the # Changelog title)
+          LINE_NUM=$(grep -n "^## " CHANGELOG.md | head -1 | cut -d: -f1)
+          if [ -n "$LINE_NUM" ]; then
+            { head -n $((LINE_NUM - 1)) CHANGELOG.md; printf '%s\n\n' "$ENTRY"; tail -n +"$LINE_NUM" CHANGELOG.md; } > tmp_changelog && mv tmp_changelog CHANGELOG.md
           else
-            echo -e "${ENTRY}" | cat - CHANGELOG.md > tmp_changelog && mv tmp_changelog CHANGELOG.md
+            { printf '%s\n\n' "$ENTRY"; cat CHANGELOG.md; } > tmp_changelog && mv tmp_changelog CHANGELOG.md
           fi
 
           # Update comparison link at the bottom
