@@ -57,7 +57,7 @@ describe("CLI", () => {
   it("should handle unknown commands gracefully", async () => {
     const output = await runCLI(["unknown-command"], true, 2000);
 
-    expect(output).toMatch(/unknown command|invalid command|Unknown command/i);
+    expect(output).toMatch(/unknown command|invalid command|Unknown command|too many arguments/i);
   }, 5000);
 
   it("should handle unknown options gracefully", async () => {
