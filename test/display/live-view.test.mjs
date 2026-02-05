@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LiveView } from "../../src/display/live-view.ts";
 
+// biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape codes are needed for terminal output
+const stripAnsi = (str) => str.replace(/\u001b\[[0-9;]*m/g, "");
+
 describe("LiveView", () => {
   let liveView;
 
@@ -103,7 +106,7 @@ describe("LiveView", () => {
         startTime: startTime,
       };
 
-      const formatted = liveView.formatSessionInfo(info);
+      const formatted = stripAnsi(liveView.formatSessionInfo(info));
       expect(formatted).toMatch(/Session: .*1234567890abcdef1234567890abcdef/);
       expect(formatted).toMatch(/Model: .*Claude 3\.5 Sonnet/);
       expect(formatted).toMatch(/Started: .*5m ago/);
@@ -121,7 +124,7 @@ describe("LiveView", () => {
         warningLevel: "normal",
       };
 
-      const formatted = liveView.formatContextUsage(info);
+      const formatted = stripAnsi(liveView.formatContextUsage(info));
       expect(formatted).toMatch(/25\.5%/);
       expect(formatted).toMatch(/50\.0k\/200\.0k/);
       expect(formatted).toMatch(/Remaining: .*150\.0k tokens \(75\.0%\)/);
@@ -171,7 +174,7 @@ describe("LiveView", () => {
         },
       };
 
-      const formatted = liveView.formatLatestTurn(info);
+      const formatted = stripAnsi(liveView.formatLatestTurn(info));
       expect(formatted).toMatch(/Input:.*1\.5k tokens/);
       expect(formatted).toMatch(/Output:.*2\.5k tokens/);
       expect(formatted).toMatch(/Cache:.*500 tokens \(read\)/);
@@ -195,7 +198,7 @@ describe("LiveView", () => {
           "This is a very long prompt that should be truncated because it exceeds the maximum display length of 100 characters",
       };
 
-      const formatted = liveView.formatLatestPrompt(info);
+      const formatted = stripAnsi(liveView.formatLatestPrompt(info));
       expect(formatted).toMatch(/\.\.\./);
       expect(formatted.length).toBeLessThan(110); // 100文字 + 装飾
     });
