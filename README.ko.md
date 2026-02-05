@@ -208,7 +208,7 @@ cccontext sessions --help
 
 ### 시스템 요구사항
 
-- Node.js 18.0.0 이상
+- Node.js 22.0.0 이상
 - macOS, Linux, Windows 지원
 
 ## 라이센스

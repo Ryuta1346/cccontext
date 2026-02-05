@@ -20,7 +20,7 @@ async function build() {
     bundle: true,
     minify: !isWatch,
     platform: 'node',
-    target: 'node18',
+    target: 'node22',
     format: 'esm',
     outfile: join(projectRoot, 'dist', 'cli.js'),
     

@@ -208,7 +208,7 @@ cccontext sessions --help
 
 ### 系统要求
 
-- Node.js 18.0.0 或更高版本
+- Node.js 22.0.0 或更高版本
 - 支持 macOS、Linux、Windows
 
 ## 许可证
