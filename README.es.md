@@ -208,7 +208,7 @@ cccontext sessions --help
 
 ### Requisitos del Sistema
 
-- Node.js 18.0.0 o superior
+- Node.js 22.0.0 o superior
 - Soporte para macOS, Linux, Windows
 
 ## Licencia

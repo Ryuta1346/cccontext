@@ -8,7 +8,8 @@ import { EnhancedSessionsManager } from "../src/monitor/enhanced-sessions-manage
 // Mock SessionWatcher
 vi.mock("../src/monitor/session-watcher.js", () => {
   return {
-    SessionWatcher: vi.fn().mockImplementation(() => {
+    // biome-ignore lint/complexity/useArrowFunction: vitest v4 requires function keyword for constructor mocks
+    SessionWatcher: vi.fn().mockImplementation(function () {
       const emitter = new EventEmitter();
       return Object.assign(emitter, {
         projectsDir: "",
@@ -42,24 +43,28 @@ vi.mock("../src/monitor/session-watcher.js", () => {
 // Mock ContextTracker
 vi.mock("../src/monitor/context-tracker.js", () => {
   return {
-    ContextTracker: vi.fn().mockImplementation(() => ({
-      updateSession: vi.fn((sessionData) => ({
-        ...sessionData,
-        warningLevel: "normal",
-        autoCompact: {
-          willTrigger: false,
-          threshold: 90,
-          remainingPercentage: 50,
-        },
-      })),
-    })),
+    // biome-ignore lint/complexity/useArrowFunction: vitest v4 requires function keyword for constructor mocks
+    ContextTracker: vi.fn().mockImplementation(function () {
+      return {
+        updateSession: vi.fn((sessionData) => ({
+          ...sessionData,
+          warningLevel: "normal",
+          autoCompact: {
+            willTrigger: false,
+            threshold: 90,
+            remainingPercentage: 50,
+          },
+        })),
+      };
+    }),
   };
 });
 
 // Mock the cache
 vi.mock("../src/monitor/session-cache.js", () => {
   return {
-    SessionCache: vi.fn().mockImplementation(() => {
+    // biome-ignore lint/complexity/useArrowFunction: vitest v4 requires function keyword for constructor mocks
+    SessionCache: vi.fn().mockImplementation(function () {
       const cache = new Map();
       const fileStats = new Map();
 
