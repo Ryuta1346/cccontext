@@ -173,13 +173,18 @@ AUTO-COMPACT ACTIVE
 
 ## 対応モデル
 
+- Claude Opus 4.6
+- Claude Opus 4.5
 - Claude Opus 4.1
 - Claude Opus 4
+- Claude 3 Opus
 - Claude Sonnet 4.5
 - Claude Sonnet 4
+- Claude Sonnet 3.7
 - Claude 3.5 Sonnet
 - Claude Haiku 4.5
 - Claude 3.5 Haiku
+- Claude 3 Haiku
 
 ## その他の情報
 

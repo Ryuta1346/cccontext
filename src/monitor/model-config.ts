@@ -28,21 +28,21 @@ interface TokenUsage {
 
 // Model pricing configuration (USD per 1M tokens)
 export const PRICING: PricingConfig = {
-  // Claude 3 Opus
-  "claude-3-opus-20241022": {
-    input: 15.0,
-    output: 75.0,
-    inputPerMillion: 15.0,
-    outputPerMillion: 75.0,
-    name: "Claude 3 Opus",
+  // Claude Opus 4.6
+  "claude-opus-4-6": {
+    input: 5.0,
+    output: 25.0,
+    inputPerMillion: 5.0,
+    outputPerMillion: 25.0,
+    name: "Claude Opus 4.6",
   },
-  // Claude Opus 4
-  "claude-opus-4-20250514": {
-    input: 15.0,
-    output: 75.0,
-    inputPerMillion: 15.0,
-    outputPerMillion: 75.0,
-    name: "Claude Opus 4",
+  // Claude Opus 4.5
+  "claude-opus-4-5-20251101": {
+    input: 5.0,
+    output: 25.0,
+    inputPerMillion: 5.0,
+    outputPerMillion: 25.0,
+    name: "Claude Opus 4.5",
   },
   // Claude Opus 4.1
   "claude-opus-4-1-20250805": {
@@ -52,13 +52,21 @@ export const PRICING: PricingConfig = {
     outputPerMillion: 75.0,
     name: "Claude Opus 4.1",
   },
-  // Claude Sonnet 4
-  "claude-sonnet-4-20250514": {
-    input: 2.25,
-    output: 11.25,
-    inputPerMillion: 2.25,
-    outputPerMillion: 11.25,
-    name: "Claude Sonnet 4",
+  // Claude Opus 4
+  "claude-opus-4-20250514": {
+    input: 15.0,
+    output: 75.0,
+    inputPerMillion: 15.0,
+    outputPerMillion: 75.0,
+    name: "Claude Opus 4",
+  },
+  // Claude 3 Opus
+  "claude-3-opus-20241022": {
+    input: 15.0,
+    output: 75.0,
+    inputPerMillion: 15.0,
+    outputPerMillion: 75.0,
+    name: "Claude 3 Opus",
   },
   // Claude Sonnet 4.5
   "claude-sonnet-4-5-20250929": {
@@ -66,7 +74,23 @@ export const PRICING: PricingConfig = {
     output: 15.0,
     inputPerMillion: 3.0,
     outputPerMillion: 15.0,
-    name: "Sonnet 4.5",
+    name: "Claude Sonnet 4.5",
+  },
+  // Claude Sonnet 4
+  "claude-sonnet-4-20250514": {
+    input: 3.0,
+    output: 15.0,
+    inputPerMillion: 3.0,
+    outputPerMillion: 15.0,
+    name: "Claude Sonnet 4",
+  },
+  // Claude Sonnet 3.7
+  "claude-3-7-sonnet-20250219": {
+    input: 3.0,
+    output: 15.0,
+    inputPerMillion: 3.0,
+    outputPerMillion: 15.0,
+    name: "Claude Sonnet 3.7",
   },
   // Claude 3.5 Sonnet
   "claude-3-5-sonnet-20241022": {
@@ -76,14 +100,6 @@ export const PRICING: PricingConfig = {
     outputPerMillion: 15.0,
     name: "Claude 3.5 Sonnet",
   },
-  // Claude 3.5 Haiku
-  "claude-3-5-haiku-20241022": {
-    input: 1.0,
-    output: 5.0,
-    inputPerMillion: 1.0,
-    outputPerMillion: 5.0,
-    name: "Claude 3.5 Haiku",
-  },
   // Claude Haiku 4.5
   "claude-haiku-4-5-20251001": {
     input: 1.0,
@@ -91,6 +107,14 @@ export const PRICING: PricingConfig = {
     inputPerMillion: 1.0,
     outputPerMillion: 5.0,
     name: "Claude Haiku 4.5",
+  },
+  // Claude 3.5 Haiku
+  "claude-3-5-haiku-20241022": {
+    input: 0.8,
+    output: 4.0,
+    inputPerMillion: 0.8,
+    outputPerMillion: 4.0,
+    name: "Claude 3.5 Haiku",
   },
   // Claude 3 Haiku
   "claude-3-haiku-20240307": {
@@ -104,15 +128,18 @@ export const PRICING: PricingConfig = {
 
 // Model context window sizes
 export const CONTEXT_WINDOWS: ContextWindowConfig = {
-  // Latest models with 1M context window
-  "claude-3-opus-20241022": 1_000_000,
-  "claude-opus-4-20250514": 1_000_000,
+  // Latest models
+  "claude-opus-4-6": 1_000_000,
+  "claude-opus-4-5-20251101": 1_000_000,
   "claude-opus-4-1-20250805": 1_000_000,
-  "claude-sonnet-4-20250514": 1_000_000,
+  "claude-opus-4-20250514": 1_000_000,
+  "claude-3-opus-20241022": 1_000_000,
   "claude-sonnet-4-5-20250929": 1_000_000,
+  "claude-sonnet-4-20250514": 1_000_000,
+  "claude-3-7-sonnet-20250219": 1_000_000,
   "claude-3-5-sonnet-20241022": 1_000_000,
-  "claude-3-5-haiku-20241022": 1_000_000,
   "claude-haiku-4-5-20251001": 1_000_000,
+  "claude-3-5-haiku-20241022": 1_000_000,
   "claude-3-haiku-20240307": 1_000_000,
 
   // Legacy models
