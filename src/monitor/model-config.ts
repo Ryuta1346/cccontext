@@ -126,21 +126,22 @@ export const PRICING: PricingConfig = {
   },
 };
 
-// Model context window sizes
+// Model context window sizes (default: 200k baseline)
+// The 1M extended context is auto-detected when usage exceeds 90% of base window
 export const CONTEXT_WINDOWS: ContextWindowConfig = {
-  // Latest models
-  "claude-opus-4-6": 1_000_000,
-  "claude-opus-4-5-20251101": 1_000_000,
-  "claude-opus-4-1-20250805": 1_000_000,
-  "claude-opus-4-20250514": 1_000_000,
-  "claude-3-opus-20241022": 1_000_000,
-  "claude-sonnet-4-5-20250929": 1_000_000,
-  "claude-sonnet-4-20250514": 1_000_000,
-  "claude-3-7-sonnet-20250219": 1_000_000,
-  "claude-3-5-sonnet-20241022": 1_000_000,
-  "claude-haiku-4-5-20251001": 1_000_000,
-  "claude-3-5-haiku-20241022": 1_000_000,
-  "claude-3-haiku-20240307": 1_000_000,
+  // Latest models (200k default, auto-upgrades to 1M)
+  "claude-opus-4-6": 200_000,
+  "claude-opus-4-5-20251101": 200_000,
+  "claude-opus-4-1-20250805": 200_000,
+  "claude-opus-4-20250514": 200_000,
+  "claude-3-opus-20241022": 200_000,
+  "claude-sonnet-4-5-20250929": 200_000,
+  "claude-sonnet-4-20250514": 200_000,
+  "claude-3-7-sonnet-20250219": 200_000,
+  "claude-3-5-sonnet-20241022": 200_000,
+  "claude-haiku-4-5-20251001": 200_000,
+  "claude-3-5-haiku-20241022": 200_000,
+  "claude-3-haiku-20240307": 200_000,
 
   // Legacy models
   "claude-2.1": 200_000,
@@ -158,7 +159,13 @@ export const DEFAULT_PRICING: PricingInfo = {
 };
 
 // Default context window size
-export const DEFAULT_CONTEXT_WINDOW: number = 1_000_000;
+export const DEFAULT_CONTEXT_WINDOW: number = 200_000;
+
+// Extended context window size (auto-upgrade target)
+export const EXTENDED_CONTEXT_WINDOW: number = 1_000_000;
+
+// Auto-upgrade threshold: when usage exceeds this ratio of base window, upgrade to extended
+export const AUTO_UPGRADE_THRESHOLD: number = 0.9;
 
 /**
  * Get model display name
@@ -177,9 +184,25 @@ export function getModelPricing(model: string): PricingInfo {
 
 /**
  * Get model context window size
+ * When currentTokens exceeds 90% of the base window, auto-upgrades to 1M extended context.
+ * When contextWindowOverride is provided (via CLI --context-window), it takes priority.
  */
-export function getContextWindow(model: string): number {
-  return CONTEXT_WINDOWS[model] || DEFAULT_CONTEXT_WINDOW;
+export function getContextWindow(
+  model: string,
+  currentTokens?: number,
+  contextWindowOverride?: number,
+): number {
+  if (contextWindowOverride !== undefined) {
+    return contextWindowOverride;
+  }
+
+  const baseWindow = CONTEXT_WINDOWS[model] ?? DEFAULT_CONTEXT_WINDOW;
+
+  if (currentTokens !== undefined && currentTokens > baseWindow * AUTO_UPGRADE_THRESHOLD) {
+    return EXTENDED_CONTEXT_WINDOW;
+  }
+
+  return baseWindow;
 }
 
 /**
@@ -206,7 +229,11 @@ export function calculateMessageCost(model: string, usage: TokenUsage | null | u
 /**
  * Calculate usage percentage for a model
  */
-export function calculateUsagePercentage(model: string, totalTokens: number): number {
-  const contextWindow = getContextWindow(model);
+export function calculateUsagePercentage(
+  model: string,
+  totalTokens: number,
+  contextWindowOverride?: number,
+): number {
+  const contextWindow = getContextWindow(model, totalTokens, contextWindowOverride);
   return (totalTokens / contextWindow) * 100;
 }

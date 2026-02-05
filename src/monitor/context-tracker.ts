@@ -88,14 +88,20 @@ interface FormattedContextInfo {
 export class ContextTracker {
   private calculator: UsageCalculator;
   private sessions: Map<string, ContextInfo>;
+  private contextWindowOverride?: number;
 
-  constructor() {
+  constructor(contextWindowOverride?: number) {
     this.calculator = new UsageCalculator();
     this.sessions = new Map();
+    this.contextWindowOverride = contextWindowOverride;
   }
 
-  getContextWindow(model: string): number {
-    return getContextWindowFromConfig(model);
+  setContextWindowOverride(override: number | undefined): void {
+    this.contextWindowOverride = override;
+  }
+
+  getContextWindow(model: string, currentTokens?: number): number {
+    return getContextWindowFromConfig(model, currentTokens, this.contextWindowOverride);
   }
 
   updateSession(sessionData: SessionData | null | undefined): ContextInfo {
@@ -191,10 +197,12 @@ export class ContextTracker {
       : [];
 
     const stats = this.calculator.calculateSessionTotals(validMessages, model);
-    const contextWindow = this.getContextWindow(model);
 
     // Use pre-calculated totalTokens if available, otherwise use calculated stats
     const totalTokens = sessionData.totalTokens !== undefined ? sessionData.totalTokens : stats.totalTokens;
+
+    // Pass totalTokens for auto-upgrade detection (200k -> 1M when usage > 90%)
+    const contextWindow = this.getContextWindow(model, totalTokens);
     const totalCacheTokens =
       sessionData.totalCacheTokens !== undefined ? sessionData.totalCacheTokens : stats.totalCacheTokens;
 
