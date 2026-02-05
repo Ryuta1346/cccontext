@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version bump type"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      dry-run:
+        description: "Dry run (skip npm publish)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Lint
+        run: pnpm run check
+
+      - name: Test
+        run: pnpm run test
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Check bundle size
+        run: pnpm run size
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: version
+        run: |
+          OLD_VERSION=$(node -p "require('./package.json').version")
+          npm version ${{ inputs.version }} --no-git-tag-version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "old_version=$OLD_VERSION" >> "$GITHUB_OUTPUT"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Bumped version: $OLD_VERSION -> $NEW_VERSION"
+
+      - name: Update CHANGELOG.md
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          OLD_VERSION="${{ steps.version.outputs.old_version }}"
+          DATE=$(date +%Y-%m-%d)
+          REPO_URL="https://github.com/ryuta1346/cccontext"
+
+          # Generate commit log since last version change
+          COMMITS=$(git log --pretty=format:"- %s" HEAD...$(git log --all --oneline --grep="^${OLD_VERSION}$" --format="%H" | head -1) 2>/dev/null || git log --pretty=format:"- %s" -10)
+
+          # Create new changelog entry
+          ENTRY="## [${NEW_VERSION}] - ${DATE}\n\n### Changed\n\n${COMMITS}\n"
+
+          # Insert after the "# Changelog" header line
+          if head -1 CHANGELOG.md | grep -q "^# "; then
+            sed -i "0,/^## /{s|^## |${ENTRY}\n## |}" CHANGELOG.md
+          else
+            echo -e "${ENTRY}" | cat - CHANGELOG.md > tmp_changelog && mv tmp_changelog CHANGELOG.md
+          fi
+
+          # Update comparison link at the bottom
+          if grep -q "\[unreleased\]:" CHANGELOG.md; then
+            sed -i "s|\[unreleased\]:.*|\[unreleased\]: ${REPO_URL}/compare/v${NEW_VERSION}...HEAD|" CHANGELOG.md
+          fi
+
+          # Add version comparison link if not exists
+          if ! grep -q "\[${NEW_VERSION}\]:" CHANGELOG.md; then
+            echo "[${NEW_VERSION}]: ${REPO_URL}/compare/v${OLD_VERSION}...v${NEW_VERSION}" >> CHANGELOG.md
+          fi
+
+      - name: Commit and tag
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          git add package.json CHANGELOG.md
+          git commit -m "release: v${NEW_VERSION}"
+          git tag "v${NEW_VERSION}"
+
+      - name: Push changes
+        run: |
+          git push origin main
+          git push origin "v${{ steps.version.outputs.new_version }}"
+
+      - name: Publish to npm
+        if: ${{ !inputs.dry-run }}
+        run: pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          OLD_VERSION="${{ steps.version.outputs.old_version }}"
+
+          # Extract changelog entry for this version
+          BODY=$(awk "/^## \[${NEW_VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
+
+          if [ -z "$BODY" ]; then
+            BODY="Release v${NEW_VERSION}"
+          fi
+
+          EXTRA=""
+          if [ "${{ inputs.dry-run }}" = "true" ]; then
+            EXTRA="
+
+          > **Note**: This was a dry-run release. The package was NOT published to npm."
+          fi
+
+          gh release create "v${NEW_VERSION}" \
+            --title "v${NEW_VERSION}" \
+            --notes "${BODY}${EXTRA}" \
+            --target main
