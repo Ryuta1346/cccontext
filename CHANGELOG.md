@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-02-05
+
+### Changed
+
+- Merge pull request #26 from Ryuta1346/claude/fix-release-workflow-VVDL0
+- fix: handle existing remote branch in release workflow
+- Merge pull request #24 from Ryuta1346/claude/fix-repo-rule-violations-0QCWq
+- fix: use PR-based release flow to comply with branch protection rules
+- Merge pull request #23 from Ryuta1346/claude/fix-release-workflow-sed-PcGhE
+- fix: replace sed with file-split approach in release workflow changelog update
+- Merge pull request #21 from Ryuta1346/claude/update-library-version-Ga3sw
+- fix: update Node.js version references to 22.0.0
+- fix: address code review findings
+- deps: update all library versions to latest
+- Merge pull request #20 from Ryuta1346/claude/automate-release-process-Ndjv1
+- fix: strip ANSI codes in live-view tests for CI compatibility
+- fix: resolve CI failures - reorder build before test, fix lint errors
+- ci: add production environment protection to release workflow
+- ci: add GitHub Actions workflows for CI and automated release
+- Merge pull request #19 from Ryuta1346/claude/update-claude-models-CnQSx
+- chore: remove npm lock file (project uses pnpm)
+- chore: add package-lock.json
+- feat(models): add Claude Opus 4.6, Opus 4.5, Sonnet 3.7 and update pricing
+- Merge pull request #17 from Ryuta1346/release/v1.4.1
+- test: update tests for 1M default context window
+
 ## [1.4.1] - 2025-11-01
 
 ### Fixed
@@ -125,4 +151,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [1.2.0]: https://github.com/ryuta1346/cccontext/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/ryuta1346/cccontext/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/ryuta1346/cccontext/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/ryuta1346/cccontext/releases/tag/v1.0.0
+[1.0.0]: https://github.com/ryuta1346/cccontext/releases/tag/v1.0.0[1.5.0]: https://github.com/ryuta1346/cccontext/compare/v1.4.1...v1.5.0
