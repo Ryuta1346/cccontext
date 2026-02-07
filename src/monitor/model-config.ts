@@ -157,8 +157,11 @@ export const DEFAULT_PRICING: PricingInfo = {
   name: "Unknown Model",
 };
 
-// Default context window size
-export const DEFAULT_CONTEXT_WINDOW: number = 1_000_000;
+// Add environment variable support
+export const DEFAULT_CONTEXT_WINDOW: number =
+  process.env.CCCONTEXT_WINDOW_SIZE ?
+  parseInt(process.env.CCCONTEXT_WINDOW_SIZE) :
+  1_000_000;
 
 /**
  * Get model display name
@@ -179,6 +182,11 @@ export function getModelPricing(model: string): PricingInfo {
  * Get model context window size
  */
 export function getContextWindow(model: string): number {
+  // If environment variable is set, use it for all models
+  if (process.env.CCCONTEXT_WINDOW_SIZE) {
+    return parseInt(process.env.CCCONTEXT_WINDOW_SIZE);
+  }
+  // Otherwise use the model-specific window or default
   return CONTEXT_WINDOWS[model] || DEFAULT_CONTEXT_WINDOW;
 }
 
