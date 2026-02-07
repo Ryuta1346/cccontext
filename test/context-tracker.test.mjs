@@ -90,20 +90,41 @@ describe("ContextTracker", () => {
   it("should get correct context window size for models", () => {
     const tracker = new ContextTracker();
 
-    // Latest models with 1M context window
-    expect(tracker.getContextWindow("claude-3-opus-20241022")).toBe(1_000_000);
-    expect(tracker.getContextWindow("claude-opus-4-20250514")).toBe(1_000_000);
-    expect(tracker.getContextWindow("claude-opus-4-1-20250805")).toBe(1_000_000);
-    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022")).toBe(1_000_000);
-    expect(tracker.getContextWindow("claude-sonnet-4-5-20250929")).toBe(1_000_000);
+    // Latest models with 200k default context window
+    expect(tracker.getContextWindow("claude-3-opus-20241022")).toBe(200_000);
+    expect(tracker.getContextWindow("claude-opus-4-20250514")).toBe(200_000);
+    expect(tracker.getContextWindow("claude-opus-4-1-20250805")).toBe(200_000);
+    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022")).toBe(200_000);
+    expect(tracker.getContextWindow("claude-sonnet-4-5-20250929")).toBe(200_000);
 
     // Legacy models
     expect(tracker.getContextWindow("claude-2.0")).toBe(100_000);
     expect(tracker.getContextWindow("claude-2.1")).toBe(200_000);
     expect(tracker.getContextWindow("claude-instant-1.2")).toBe(100_000);
 
-    // Unknown model (default is now 1M)
-    expect(tracker.getContextWindow("unknown-model")).toBe(1_000_000);
+    // Unknown model (default is now 200k)
+    expect(tracker.getContextWindow("unknown-model")).toBe(200_000);
+  });
+
+  it("should auto-upgrade to 1M when usage exceeds 90% of base window", () => {
+    const tracker = new ContextTracker();
+
+    // Below 90% threshold - should stay at 200k
+    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022", 170_000)).toBe(200_000);
+
+    // Above 90% threshold (180k+) - should auto-upgrade to 1M
+    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022", 185_000)).toBe(1_000_000);
+    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022", 200_000)).toBe(1_000_000);
+    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022", 500_000)).toBe(1_000_000);
+  });
+
+  it("should respect contextWindowOverride over auto-upgrade", () => {
+    const tracker = new ContextTracker(500_000);
+
+    // Override should always be returned regardless of model or tokens
+    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022")).toBe(500_000);
+    expect(tracker.getContextWindow("claude-3-5-sonnet-20241022", 185_000)).toBe(500_000);
+    expect(tracker.getContextWindow("unknown-model")).toBe(500_000);
   });
 
   it("should calculate context usage correctly", () => {
@@ -132,21 +153,20 @@ describe("ContextTracker", () => {
     const result = tracker.updateSession(sessionData);
 
     expect(result.totalTokens).toBe(3000);
-    expect(result.contextWindow).toBe(1_000_000);
-    expect(result.usagePercentage).toBe(0.3);
-    expect(result.remainingTokens).toBe(997_000);
+    expect(result.contextWindow).toBe(200_000);
+    expect(result.usagePercentage).toBe(1.5);
+    expect(result.remainingTokens).toBe(197_000);
     expect(result.turns).toBe(1);
     expect(result.warningLevel).toBe("normal");
   });
 
-  it("should set correct warning levels based on usage", () => {
+  it("should set correct warning levels based on usage (200k window)", () => {
     const tracker = new ContextTracker();
 
     const testCases = [
-      { tokens: 800_000, expectedLevel: "warning" }, // 80%
-      { tokens: 900_000, expectedLevel: "severe" }, // 90%
-      { tokens: 950_000, expectedLevel: "critical" }, // 95%
-      { tokens: 500_000, expectedLevel: "normal" }, // 50%
+      { tokens: 160_000, expectedLevel: "warning" }, // 80% of 200k
+      { tokens: 100_000, expectedLevel: "normal" }, // 50% of 200k
+      { tokens: 170_000, expectedLevel: "warning" }, // 85% of 200k → still "warning" range (80-89%)
     ];
 
     for (const testCase of testCases) {
@@ -164,6 +184,60 @@ describe("ContextTracker", () => {
       };
 
       const result = tracker.updateSession(sessionData);
+      expect(result.warningLevel).toBe(testCase.expectedLevel);
+    }
+  });
+
+  it("should auto-upgrade to 1M and reset warning levels when usage exceeds 90% of 200k", () => {
+    const tracker = new ContextTracker();
+
+    // 185k tokens > 90% of 200k → auto-upgrades to 1M → 18.5% usage → "normal"
+    const sessionData = {
+      sessionId: "test-auto-upgrade",
+      model: "claude-3-5-sonnet-20241022",
+      messages: [
+        {
+          message: {
+            role: "assistant",
+            usage: { input_tokens: 185_000, output_tokens: 0 },
+          },
+        },
+      ],
+    };
+
+    const result = tracker.updateSession(sessionData);
+    expect(result.contextWindow).toBe(1_000_000);
+    expect(result.warningLevel).toBe("normal");
+    expect(result.usagePercentage).toBe(18.5);
+  });
+
+  it("should set warning levels correctly in 1M mode (auto-upgraded)", () => {
+    const tracker = new ContextTracker();
+
+    const testCases = [
+      { tokens: 800_000, expectedLevel: "warning" }, // 80% of 1M
+      { tokens: 900_000, expectedLevel: "severe" }, // 90% of 1M
+      { tokens: 950_000, expectedLevel: "critical" }, // 95% of 1M
+      { tokens: 500_000, expectedLevel: "normal" }, // 50% of 1M
+    ];
+
+    for (const testCase of testCases) {
+      const sessionData = {
+        sessionId: `test-1m-${testCase.tokens}`,
+        model: "claude-3-5-sonnet-20241022",
+        messages: [
+          {
+            message: {
+              role: "assistant",
+              usage: { input_tokens: testCase.tokens, output_tokens: 0 },
+            },
+          },
+        ],
+      };
+
+      const result = tracker.updateSession(sessionData);
+      // All these token counts > 180k so auto-upgrade to 1M applies
+      expect(result.contextWindow).toBe(1_000_000);
       expect(result.warningLevel).toBe(testCase.expectedLevel);
     }
   });
@@ -195,7 +269,7 @@ describe("ContextTracker", () => {
     expect(result.latestTurn.output).toBe(2000);
     expect(result.latestTurn.cache).toBe(500);
     expect(result.latestTurn.total).toBe(3000); // 1000 + 2000 (cache not included)
-    expect(result.latestTurn.percentage).toBeCloseTo(0.3, 5); // 3000 / 1000000 * 100
+    expect(result.latestTurn.percentage).toBeCloseTo(1.5, 5); // 3000 / 200000 * 100
   });
 
   it("should format context info correctly", () => {
@@ -388,14 +462,14 @@ describe("ContextTracker", () => {
   });
 
   describe("Model Names and Context Windows", () => {
-    it("should have correct context window sizes", () => {
-      // Latest models with 1M context
-      expect(CONTEXT_WINDOWS["claude-3-opus-20241022"]).toBe(1_000_000);
-      expect(CONTEXT_WINDOWS["claude-opus-4-20250514"]).toBe(1_000_000);
-      expect(CONTEXT_WINDOWS["claude-opus-4-1-20250805"]).toBe(1_000_000);
-      expect(CONTEXT_WINDOWS["claude-3-5-sonnet-20241022"]).toBe(1_000_000);
-      expect(CONTEXT_WINDOWS["claude-3-5-haiku-20241022"]).toBe(1_000_000);
-      expect(CONTEXT_WINDOWS["claude-3-haiku-20240307"]).toBe(1_000_000);
+    it("should have correct context window sizes (200k baseline)", () => {
+      // Latest models with 200k default context
+      expect(CONTEXT_WINDOWS["claude-3-opus-20241022"]).toBe(200_000);
+      expect(CONTEXT_WINDOWS["claude-opus-4-20250514"]).toBe(200_000);
+      expect(CONTEXT_WINDOWS["claude-opus-4-1-20250805"]).toBe(200_000);
+      expect(CONTEXT_WINDOWS["claude-3-5-sonnet-20241022"]).toBe(200_000);
+      expect(CONTEXT_WINDOWS["claude-3-5-haiku-20241022"]).toBe(200_000);
+      expect(CONTEXT_WINDOWS["claude-3-haiku-20240307"]).toBe(200_000);
 
       // Legacy models
       expect(CONTEXT_WINDOWS["claude-2.1"]).toBe(200_000);
@@ -465,7 +539,7 @@ describe("ContextTracker", () => {
         output: 2000,
         cache: 0,
         total: 3000,
-        percentage: 0.3,
+        percentage: 1.5,
       });
     });
 

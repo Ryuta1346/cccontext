@@ -14,4 +14,7 @@ docs/
 # Backup files
 .backup-mjs/
 
+# npm lock file (this project uses pnpm)
+package-lock.json
+
 

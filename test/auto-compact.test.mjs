@@ -33,7 +33,7 @@ describe("AutoCompact Configuration", () => {
 });
 
 describe("AutoCompact in ContextTracker", () => {
-  it("should calculate auto-compact information correctly", () => {
+  it("should calculate auto-compact information correctly (200k baseline)", () => {
     const tracker = new ContextTracker();
     const sessionData = {
       sessionId: "test-session",
@@ -58,18 +58,16 @@ describe("AutoCompact in ContextTracker", () => {
     expect(info.autoCompact.threshold).toBe(0.92);
     expect(info.autoCompact.thresholdPercentage).toBe(92);
 
-    // With 1600 tokens used (1000 input + 500 output + 100 cache) out of 1M
-    // But Claude Code subtracts system overhead first
-    // The auto-compact calculation is complex due to overhead
-    expect(info.usagePercentage).toBeCloseTo(0.16, 2);
-    // Exact values depend on system overhead calculation
+    // With 1600 tokens used (1000 input + 500 output + 100 cache) out of 200k
+    expect(info.usagePercentage).toBeCloseTo(0.8, 1);
+    // With 200k context, remaining is high
     expect(info.autoCompact.remainingPercentage).toBeGreaterThan(85);
-    expect(info.autoCompact.remainingTokens).toBeGreaterThan(850000);
+    expect(info.autoCompact.remainingTokens).toBeGreaterThan(140000);
     expect(info.autoCompact.warningLevel).toBe("normal");
     expect(info.autoCompact.willCompactSoon).toBe(false);
   });
 
-  it("should handle high usage scenarios correctly", () => {
+  it("should handle high usage within 200k window correctly", () => {
     const tracker = new ContextTracker();
     const sessionData = {
       sessionId: "test-session",
@@ -89,17 +87,14 @@ describe("AutoCompact in ContextTracker", () => {
 
     const info = tracker.updateSession(sessionData);
 
-    // With 126k tokens used (125k + 1k cache) out of 1M, usage is 12.6%
-    // Auto-compact calculation considers system overhead
-    expect(info.usagePercentage).toBe(12.6);
-    // With 1M context, remaining percentage is much higher
-    expect(info.autoCompact.remainingPercentage).toBeGreaterThan(75);
-    expect(info.autoCompact.remainingTokens).toBeGreaterThan(750000);
+    // 126k tokens out of 200k = 63% (below 90% auto-upgrade threshold)
+    expect(info.contextWindow).toBe(200_000);
+    expect(info.usagePercentage).toBe(63);
     expect(info.autoCompact.warningLevel).toBe("normal");
     expect(info.autoCompact.willCompactSoon).toBe(false);
   });
 
-  it("should handle exceeded threshold correctly", () => {
+  it("should handle exceeded threshold within 200k correctly", () => {
     const tracker = new ContextTracker();
     const sessionData = {
       sessionId: "test-session",
@@ -119,17 +114,14 @@ describe("AutoCompact in ContextTracker", () => {
 
     const info = tracker.updateSession(sessionData);
 
-    // With 151k tokens used (150k + 1k cache) out of 1M, usage is 15.1%
-    // Auto-compact calculation considers system overhead
-    expect(info.usagePercentage).toBe(15.1);
-    // With 1M context, remaining percentage is much higher
-    expect(info.autoCompact.remainingPercentage).toBeGreaterThan(74);
-    expect(info.autoCompact.remainingTokens).toBeGreaterThan(700000);
-    expect(info.autoCompact.warningLevel).toBe("normal");
-    expect(info.autoCompact.willCompactSoon).toBe(false);
+    // 151k tokens out of 200k = 75.5% (below 90% auto-upgrade threshold)
+    // Auto-compact: remaining ~6% until threshold → "warning" level
+    expect(info.contextWindow).toBe(200_000);
+    expect(info.usagePercentage).toBe(75.5);
+    expect(info.autoCompact.warningLevel).toBe("warning");
   });
 
-  it("should handle near-threshold scenarios correctly", () => {
+  it("should auto-upgrade to 1M when usage exceeds 90% of 200k baseline", () => {
     const tracker = new ContextTracker();
     const sessionData = {
       sessionId: "test-session",
@@ -149,8 +141,8 @@ describe("AutoCompact in ContextTracker", () => {
 
     const info = tracker.updateSession(sessionData);
 
-    // With 191k tokens used (190k + 1k cache) out of 1M, usage is 19.1%
-    // Still well below threshold with 1M context
+    // 191k tokens > 90% of 200k (180k) → auto-upgrade to 1M
+    expect(info.contextWindow).toBe(1_000_000);
     expect(info.usagePercentage).toBe(19.1);
     // With 1M context, remaining percentage is much higher
     expect(info.autoCompact.remainingPercentage).toBeGreaterThan(75);
@@ -159,7 +151,7 @@ describe("AutoCompact in ContextTracker", () => {
     expect(info.autoCompact.willCompactSoon).toBe(false);
   });
 
-  it("should handle above-threshold scenarios correctly", () => {
+  it("should handle above-threshold scenarios in 1M mode correctly", () => {
     const tracker = new ContextTracker();
     const sessionData = {
       sessionId: "test-session",
@@ -179,8 +171,8 @@ describe("AutoCompact in ContextTracker", () => {
 
     const info = tracker.updateSession(sessionData);
 
-    // With 199k tokens used (198k + 1k cache) out of 1M, usage is 19.9%
-    // Still well below threshold with 1M context
+    // 199k tokens > 90% of 200k → auto-upgrade to 1M
+    expect(info.contextWindow).toBe(1_000_000);
     expect(info.usagePercentage).toBeCloseTo(19.9, 1);
     // With 1M context, remaining percentage is much higher
     expect(info.autoCompact.remainingPercentage).toBeGreaterThan(69);

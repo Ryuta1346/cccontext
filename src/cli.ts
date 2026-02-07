@@ -66,6 +66,7 @@ interface CLIOptions {
   clearCache?: boolean;
   list?: boolean;
   listLimit?: number;
+  contextWindow?: string;
 }
 
 interface SessionForList {
@@ -121,7 +122,31 @@ class CCContextCLI {
     this.watchedSessions = new Map();
   }
 
+  private applyContextWindowOverride(options: CLIOptions): void {
+    const envOverride = process.env.CCCONTEXT_WINDOW_SIZE;
+    const cliOverride = options.contextWindow;
+    const rawValue = cliOverride || envOverride;
+
+    if (rawValue) {
+      const parsed = Number(rawValue);
+      if (Number.isNaN(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
+        console.error(
+          pc.red(`Invalid --context-window value: "${rawValue}". Must be a positive integer.`),
+        );
+        process.exit(1);
+      }
+      if (parsed < 1_000 || parsed > 2_000_000) {
+        console.error(
+          pc.red(`Invalid --context-window value: ${parsed}. Must be between 1,000 and 2,000,000.`),
+        );
+        process.exit(1);
+      }
+      this.tracker.setContextWindowOverride(parsed);
+    }
+  }
+
   async monitorLive(options: CLIOptions): Promise<void> {
+    this.applyContextWindowOverride(options);
     console.log(pc.cyan("🔍 Starting Claude Code Context Monitor..."));
 
     try {
@@ -197,6 +222,7 @@ class CCContextCLI {
   }
 
   async showSessions(options: CLIOptions): Promise<void> {
+    this.applyContextWindowOverride(options);
     console.log(pc.cyan("🔍 Loading Claude Code Sessions..."));
 
     // Initialize live view
@@ -509,7 +535,7 @@ class CCContextCLI {
       displaySessions.forEach((session, index) => {
         const age = this.formatAge(session.lastModified);
         const modelName = this.calculator.getModelName(session.model);
-        const contextWindow = this.tracker.getContextWindow(session.model);
+        const contextWindow = this.tracker.getContextWindow(session.model, session.totalTokens);
         const usage = (session.totalTokens / contextWindow) * 100;
         const formattedPrompt = session.latestPrompt ? this.formatPromptForList(session.latestPrompt) : "";
 
@@ -568,6 +594,7 @@ class CCContextCLI {
   }
 
   async showSessionsLive(options: CLIOptions): Promise<void> {
+    this.applyContextWindowOverride(options);
     console.log(pc.cyan("🔍 Starting Claude Code Sessions Monitor..."));
 
     // Initialize live view
@@ -916,6 +943,7 @@ program
   .description("Monitor Claude Code context usage")
   .option("-l, --live", "Live monitoring mode (default)", true)
   .option("-s, --session <number>", "Monitor specific session by number from list")
+  .option("--context-window <tokens>", "Override context window size (e.g., 200000, 1000000)")
   .action((options: CLIOptions) => {
     cli.monitorLive(options);
   });
@@ -927,6 +955,7 @@ program
   .option("--live", "Live monitoring mode")
   .option("--debug", "Enable debug mode for detailed logging")
   .option("--clear-cache", "Clear session cache and exit")
+  .option("--context-window <tokens>", "Override context window size (e.g., 200000, 1000000)")
   .action((options: CLIOptions) => {
     if (options.clearCache) {
       cli.clearCache();
@@ -945,22 +974,25 @@ program.on("command:*", (operands: string[]) => {
 });
 
 // Default command (when executed without arguments)
-program.option("--list", "List all sessions for selection").action((options: CLIOptions) => {
-  // Check command line arguments
-  const args = process.argv.slice(2);
-  // Error if unknown command is specified
-  if (args.length > 0 && !args[0]?.startsWith("-") && !["monitor", "sessions"].includes(args[0] ?? "")) {
-    console.error(`error: unknown command '${args[0] ?? ""}'`);
-    process.exit(1);
-  }
+program
+  .option("--list", "List all sessions for selection")
+  .option("--context-window <tokens>", "Override context window size (e.g., 200000, 1000000)")
+  .action((options: CLIOptions) => {
+    // Check command line arguments
+    const args = process.argv.slice(2);
+    // Error if unknown command is specified
+    if (args.length > 0 && !args[0]?.startsWith("-") && !["monitor", "sessions"].includes(args[0] ?? "")) {
+      console.error(`error: unknown command '${args[0] ?? ""}'`);
+      process.exit(1);
+    }
 
-  if (options.list) {
-    cli.listSessionsForSelection({ limit: options.listLimit || 20 });
-  } else {
-    // Default to monitor without session selection
-    cli.monitorLive({ live: true });
-  }
-});
+    if (options.list) {
+      cli.listSessionsForSelection({ limit: options.listLimit || 20 });
+    } else {
+      // Default to monitor without session selection
+      cli.monitorLive({ live: true, contextWindow: options.contextWindow });
+    }
+  });
 
 try {
   program.parse(process.argv);
